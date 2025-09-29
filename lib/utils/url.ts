@@ -8,6 +8,11 @@ let cachedBaseUrlCandidates: URL[] | undefined
 let cachedDeploymentUrlEnv: string | undefined
 let cachedDeploymentUrl: URL | undefined
 
+function isStaticGenerationPhase() {
+  const phase = process.env.NEXT_PHASE
+  return phase === 'phase-production-build' || phase === 'phase-export'
+}
+
 type NormalisedHost = {
   host: string
   hostname: string
@@ -359,80 +364,17 @@ function resolveHeaderContext(headersList: HeaderLike): ResolvedHeaderContext {
   }
 }
 
-async function getHeaders(
-  providedHeaders?: MaybePromise<HeaderSource | null | undefined>
-): Promise<HeaderLike> {
-  if (providedHeaders) {
-    const resolved = isPromiseLike(providedHeaders)
-      ? await providedHeaders
-      : providedHeaders
-
-    const headerLike = toHeaderLike(resolved ?? undefined)
-    if (headerLike) {
-      return headerLike
-    }
+function resolveUrlFromContext(
+  context: ResolvedHeaderContext | undefined,
+  candidates: URL[]
+): URL | undefined {
+  if (!context) {
+    return undefined
   }
-
-  try {
-    const nextResolved = nextHeaders()
-    const resolvedNext = isPromiseLike(nextResolved)
-      ? await nextResolved
-      : nextResolved
-
-    if (resolvedNext) {
-      const headerLike = toHeaderLike(resolvedNext)
-      if (headerLike) {
-        return headerLike
-      }
-    }
-  } catch (error) {
-    console.warn('Failed to resolve Next.js headers. Falling back.', error)
-  }
-
-  return new Headers()
-}
-
-function fallbackBaseUrl() {
-  return new URL(DEFAULT_BASE_URL)
-}
-
-/**
- * Helper function to get base URL from headers
- * Extracts URL information from Next.js request headers
- * Accepts Next.js `headers()`, native `Request` objects or any `HeadersInit` source.
- */
-export async function getBaseUrlFromHeaders(
-  providedHeaders?: MaybePromise<HeaderSource | null | undefined>
-): Promise<URL> {
-  const headersList = await getHeaders(providedHeaders)
-  const context = resolveHeaderContext(headersList)
-  const deploymentUrl = readDeploymentUrl()
-
-  return (
-    context.directUrl ??
-    (context.host ? constructUrlFromHost(context.host, context.protocol) : undefined) ??
-    deploymentUrl ??
-    fallbackBaseUrl()
-  )
-}
-
-/**
- * Resolves the base URL using environment variables or headers
- * Centralises the base URL resolution logic used across the application
- * Accepts the same flexible header inputs as {@link getBaseUrlFromHeaders}.
- * @returns A URL object representing the base URL
- */
-export async function getBaseUrl(
-  providedHeaders?: MaybePromise<HeaderSource | null | undefined>
-): Promise<URL> {
-  const headersList = await getHeaders(providedHeaders)
-  const context = resolveHeaderContext(headersList)
-  const candidates = readBaseUrlCandidates()
-  const deploymentUrl = readDeploymentUrl()
 
   const contextHost = context.host
 
-  if (candidates.length > 0 && contextHost) {
+  if (contextHost && candidates.length > 0) {
     const match = candidates.find(candidate => {
       const candidateHost = candidate.host.toLowerCase()
       const candidateHostname = candidate.hostname.toLowerCase()
@@ -448,12 +390,124 @@ export async function getBaseUrl(
     }
   }
 
-  const headerDerived =
-    context.directUrl ||
+  return (
+    context.directUrl ??
     (contextHost ? constructUrlFromHost(contextHost, context.protocol) : undefined)
+  )
+}
 
-  if (headerDerived) {
-    return headerDerived
+async function resolveHeaderContextFromSources(
+  providedHeaders?: MaybePromise<HeaderSource | null | undefined>,
+  { fallbackToNext }: { fallbackToNext: boolean }
+): Promise<ResolvedHeaderContext | undefined> {
+  const provided = await resolveProvidedHeaders(providedHeaders)
+
+  if (provided) {
+    return resolveHeaderContext(provided)
+  }
+
+  if (!fallbackToNext) {
+    return undefined
+  }
+
+  if (isStaticGenerationPhase()) {
+    return undefined
+  }
+
+  const next = await resolveNextHeaders()
+
+  if (next) {
+    return resolveHeaderContext(next)
+  }
+
+  return undefined
+}
+
+async function resolveProvidedHeaders(
+  providedHeaders?: MaybePromise<HeaderSource | null | undefined>
+): Promise<HeaderLike | undefined> {
+  if (!providedHeaders) {
+    return undefined
+  }
+
+  const resolved = isPromiseLike(providedHeaders)
+    ? await providedHeaders
+    : providedHeaders
+
+  return toHeaderLike(resolved ?? undefined)
+}
+
+async function resolveNextHeaders(): Promise<HeaderLike | undefined> {
+  try {
+    const nextResolved = nextHeaders()
+    const resolvedNext = isPromiseLike(nextResolved)
+      ? await nextResolved
+      : nextResolved
+
+    if (resolvedNext) {
+      return toHeaderLike(resolvedNext) ?? undefined
+    }
+  } catch (error) {
+    console.warn('Failed to resolve Next.js headers. Falling back.', error)
+  }
+
+  return undefined
+}
+
+function fallbackBaseUrl() {
+  return new URL(DEFAULT_BASE_URL)
+}
+
+/**
+ * Helper function to get base URL from headers
+ * Extracts URL information from Next.js request headers
+ * Accepts Next.js `headers()`, native `Request` objects or any `HeadersInit` source.
+ */
+export async function getBaseUrlFromHeaders(
+  providedHeaders?: MaybePromise<HeaderSource | null | undefined>
+): Promise<URL> {
+  const context = await resolveHeaderContextFromSources(providedHeaders, {
+    fallbackToNext: true,
+  })
+
+  const hostContext = context?.host
+  const deploymentUrl = readDeploymentUrl()
+
+  return (
+    context?.directUrl ??
+    (hostContext ? constructUrlFromHost(hostContext, context?.protocol) : undefined) ??
+    deploymentUrl ??
+    fallbackBaseUrl()
+  )
+}
+
+/**
+ * Resolves the base URL using environment variables or headers
+ * Centralises the base URL resolution logic used across the application
+ * Accepts the same flexible header inputs as {@link getBaseUrlFromHeaders}.
+ * @returns A URL object representing the base URL
+ */
+export async function getBaseUrl(
+  providedHeaders?: MaybePromise<HeaderSource | null | undefined>
+): Promise<URL> {
+  const candidates = readBaseUrlCandidates()
+  const deploymentUrl = readDeploymentUrl()
+  const initialContext = await resolveHeaderContextFromSources(providedHeaders, {
+    fallbackToNext: false,
+  })
+
+  const initialResolved = resolveUrlFromContext(initialContext, candidates)
+  if (initialResolved) {
+    return initialResolved
+  }
+
+  const nextContext = await resolveHeaderContextFromSources(undefined, {
+    fallbackToNext: true,
+  })
+
+  const nextResolved = resolveUrlFromContext(nextContext, candidates)
+  if (nextResolved) {
+    return nextResolved
   }
 
   if (candidates.length > 0) {
