@@ -5,6 +5,7 @@ This guide covers the optional features and their configuration in Morphic.
 ## Table of Contents
 
 - [Chat History Storage](#chat-history-storage)
+- [Base URL & Multi-domain Deployments](#base-url--multi-domain-deployments)
 - [Search Providers](#search-providers)
 - [Additional AI Providers](#additional-ai-providers)
 - [Other Features](#other-features)
@@ -224,3 +225,47 @@ SERPER_API_KEY=[YOUR_API_KEY]
 ```bash
 JINA_API_KEY=[YOUR_API_KEY]
 ```
+## Base URL & Multi-domain Deployments
+
+Use the `BASE_URL` (or `NEXT_PUBLIC_BASE_URL`) environment variable when you
+need to override the automatically detected host—for example, when the app is
+served behind a proxy or during static rendering. The value supports a
+comma-separated list of canonical URLs, which is useful when deploying the same
+instance across multiple domains. Morphic checks both variables so you can set
+one value that works for server-side and client-side code alike.
+
+```bash
+# Example: serve Morphic from multiple domains
+BASE_URL=https://traceremove.com,https://traceremove.net,https://traceremove.dev
+```
+
+At runtime Morphic compares the incoming request host (ignoring port and
+letter-case) against each configured URL and picks the matching one. Bare domain
+entries are automatically converted to `https://` URLs, making it easier to keep
+the configuration readable when you manage multiple public domains. If no match
+is found Morphic reuses the host reported by the incoming request headers (with
+support for common proxy headers) before falling back to the first entry. Header
+derived hosts automatically default to `https://` unless the hostname clearly
+points to a local machine (e.g. `localhost`, `*.local`, or RFC 1918 IP ranges),
+keeping production URLs secure while leaving development URLs untouched. This
+ensures that features relying on absolute URLs—such as advanced SearXNG
+searches, shareable chat links, and model configuration—continue to work
+correctly on every mapped domain while keeping local development seamless. If
+your proxy strips port information from the `Host` header, Morphic will honour
+`X-Forwarded-Port` (or `X-Port`) so generated URLs retain the expected port while
+still matching the configured canonical domains.
+
+When deploying to Vercel without an explicit `BASE_URL`, Morphic now falls back
+to the `VERCEL_URL` (or `NEXT_PUBLIC_VERCEL_URL`) environment variable before
+ultimately using `http://localhost:3000`. This guards background jobs and build
+steps from generating localhost links when the runtime host information isn't
+available—handy for static generation, cron jobs, and other non-request
+contexts.
+
+The helper utilities in `@/lib/utils/url` accept any header-like source. You can
+pass the result of `headers()` in a Next.js route handler, a native `Request`
+object, or even a plain header record when resolving URLs during background
+tasks. If you need to change `BASE_URL`-related environment variables between
+tests, call `resetBaseUrlCache()` from the same module so subsequent assertions
+pick up the updated values.
+
