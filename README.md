@@ -157,6 +157,9 @@ Visit http://localhost:3000 in your browser.
 ## 🌐 Deploy
 
 Host your own live version of Morphic with Vercel, Cloudflare Pages, or Docker.
+If you plan to serve the same deployment from multiple domains, configure the
+`BASE_URL` environment variable as described in the
+[Configuration Guide](docs/CONFIGURATION.md#base-url--multi-domain-deployments).
 
 ### Vercel
 

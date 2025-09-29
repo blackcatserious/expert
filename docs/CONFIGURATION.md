@@ -5,6 +5,7 @@ This guide covers the optional features and their configuration in Morphic.
 ## Table of Contents
 
 - [Chat History Storage](#chat-history-storage)
+- [Base URL & Multi-domain Deployments](#base-url--multi-domain-deployments)
 - [Search Providers](#search-providers)
 - [Additional AI Providers](#additional-ai-providers)
 - [Other Features](#other-features)
@@ -224,3 +225,23 @@ SERPER_API_KEY=[YOUR_API_KEY]
 ```bash
 JINA_API_KEY=[YOUR_API_KEY]
 ```
+## Base URL & Multi-domain Deployments
+
+Use the `BASE_URL` (or `NEXT_PUBLIC_BASE_URL`) environment variable when you
+need to override the automatically detected host—for example, when the app is
+served behind a proxy or during static rendering. The value now supports a
+comma-separated list of canonical URLs, which is useful when deploying the same
+instance across multiple domains.
+
+```bash
+# Example: serve Morphic from multiple domains
+BASE_URL=https://traceremove.com,https://traceremove.net,https://traceremove.dev
+```
+
+At runtime Morphic compares the incoming request host against each configured
+URL and picks the matching one. If no match is found it falls back to the first
+entry, and finally to the host reported by Next.js headers. This ensures that
+features relying on absolute URLs—such as advanced SearXNG searches, shareable
+chat links, and model configuration—continue to work correctly on every mapped
+domain.
+
