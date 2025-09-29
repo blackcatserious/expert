@@ -165,6 +165,12 @@ If you plan to serve the same deployment from multiple domains, configure the
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmiurla%2Fmorphic&env=OPENAI_API_KEY,TAVILY_API_KEY,UPSTASH_REDIS_REST_URL,UPSTASH_REDIS_REST_TOKEN)
 
+The deployment automatically respects `BASE_URL` if you configure it for
+multiple domains. When no base URLs are provided Morphic now falls back to the
+`VERCEL_URL` (or `NEXT_PUBLIC_VERCEL_URL`) environment variable so background
+jobs and static generation still produce shareable links that point at your live
+domain instead of `localhost`.
+
 ### Docker Prebuilt Image
 
 Prebuilt Docker images are available on GitHub Container Registry:

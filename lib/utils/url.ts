@@ -3,6 +3,11 @@ import { headers as nextHeaders } from 'next/headers'
 const DEFAULT_BASE_URL = 'http://localhost:3000'
 const DOMAIN_ONLY_REGEX = /^[A-Za-z0-9.-]+(:\d+)?$/
 
+let cachedBaseUrlEnv: string | undefined
+let cachedBaseUrlCandidates: URL[] | undefined
+let cachedDeploymentUrlEnv: string | undefined
+let cachedDeploymentUrl: URL | undefined
+
 type NormalisedHost = {
   host: string
   hostname: string
@@ -170,17 +175,75 @@ function parseUrlCandidate(candidate: string) {
   }
 }
 
-function readBaseUrlCandidates() {
-  const baseUrlEnv = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL
+function readBaseUrlEnvValue() {
+  return process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || ''
+}
 
-  if (!baseUrlEnv) {
-    return []
+function readBaseUrlCandidates() {
+  const baseUrlEnv = readBaseUrlEnvValue()
+
+  if (cachedBaseUrlCandidates && baseUrlEnv === cachedBaseUrlEnv) {
+    return cachedBaseUrlCandidates
   }
 
-  return baseUrlEnv
+  if (!baseUrlEnv) {
+    cachedBaseUrlEnv = baseUrlEnv
+    cachedBaseUrlCandidates = []
+    return cachedBaseUrlCandidates
+  }
+
+  const parsedCandidates = baseUrlEnv
     .split(',')
     .map(parseUrlCandidate)
     .filter((candidate): candidate is URL => Boolean(candidate))
+
+  cachedBaseUrlEnv = baseUrlEnv
+  cachedBaseUrlCandidates = parsedCandidates
+
+  return parsedCandidates
+}
+
+function readDeploymentUrlEnvValue() {
+  return process.env.NEXT_PUBLIC_VERCEL_URL || process.env.VERCEL_URL || ''
+}
+
+function readDeploymentUrl(): URL | undefined {
+  const deploymentEnv = readDeploymentUrlEnvValue()
+
+  if (cachedDeploymentUrl && cachedDeploymentUrlEnv === deploymentEnv) {
+    return cachedDeploymentUrl
+  }
+
+  if (!deploymentEnv) {
+    cachedDeploymentUrlEnv = deploymentEnv
+    cachedDeploymentUrl = undefined
+    return undefined
+  }
+
+  try {
+    const trimmed = deploymentEnv.trim()
+    if (!trimmed) {
+      cachedDeploymentUrlEnv = deploymentEnv
+      cachedDeploymentUrl = undefined
+      return undefined
+    }
+
+    const candidate = trimmed.includes('://')
+      ? trimmed
+      : `https://${trimmed}`
+
+    const parsed = new URL(candidate)
+
+    cachedDeploymentUrlEnv = deploymentEnv
+    cachedDeploymentUrl = parsed
+
+    return parsed
+  } catch (error) {
+    console.warn('Invalid deployment URL environment value. Ignoring.', error)
+    cachedDeploymentUrlEnv = deploymentEnv
+    cachedDeploymentUrl = undefined
+    return undefined
+  }
 }
 
 function normaliseProtocol(protocol?: string | null) {
@@ -306,10 +369,12 @@ export async function getBaseUrlFromHeaders(
 ): Promise<URL> {
   const headersList = await getHeaders(providedHeaders)
   const context = resolveHeaderContext(headersList)
+  const deploymentUrl = readDeploymentUrl()
 
   return (
     context.directUrl ??
     (context.host ? constructUrlFromHost(context.host, context.protocol) : undefined) ??
+    deploymentUrl ??
     fallbackBaseUrl()
   )
 }
@@ -326,6 +391,7 @@ export async function getBaseUrl(
   const headersList = await getHeaders(providedHeaders)
   const context = resolveHeaderContext(headersList)
   const candidates = readBaseUrlCandidates()
+  const deploymentUrl = readDeploymentUrl()
 
   const contextHost = context.host
 
@@ -355,6 +421,10 @@ export async function getBaseUrl(
 
   if (candidates.length > 0) {
     return new URL(candidates[0].toString())
+  }
+
+  if (deploymentUrl) {
+    return new URL(deploymentUrl.toString())
   }
 
   return fallbackBaseUrl()
