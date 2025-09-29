@@ -397,7 +397,7 @@ function resolveUrlFromContext(
 }
 
 async function resolveHeaderContextFromSources(
-  providedHeaders?: MaybePromise<HeaderSource | null | undefined>,
+  providedHeaders: MaybePromise<HeaderSource | null | undefined> | undefined,
   { fallbackToNext }: { fallbackToNext: boolean }
 ): Promise<ResolvedHeaderContext | undefined> {
   const provided = await resolveProvidedHeaders(providedHeaders)
