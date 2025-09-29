@@ -196,13 +196,17 @@ async function getHeaders(
     }
   }
 
-  const nextResolved = nextHeaders()
-  const resolvedNext = isPromiseLike(nextResolved)
-    ? await nextResolved
-    : nextResolved
+  try {
+    const nextResolved = nextHeaders()
+    const resolvedNext = isPromiseLike(nextResolved)
+      ? await nextResolved
+      : nextResolved
 
-  if (resolvedNext && isHeaderLike(resolvedNext)) {
-    return resolvedNext
+    if (resolvedNext && isHeaderLike(resolvedNext)) {
+      return resolvedNext
+    }
+  } catch (error) {
+    console.warn('Failed to resolve Next.js headers. Falling back.', error)
   }
 
   return new Headers()
