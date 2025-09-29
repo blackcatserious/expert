@@ -7,6 +7,14 @@ type HeaderLike = {
   get(name: string): string | null | undefined
 }
 
+type HeaderSource =
+  | HeaderLike
+  | Headers
+  | HeadersInit
+  | Request
+  | Response
+  | { headers?: HeaderSource | null | undefined }
+
 type MaybePromise<T> = T | Promise<T>
 
 function isPromiseLike<T>(value: unknown): value is PromiseLike<T> {
@@ -24,6 +32,42 @@ function isHeaderLike(value: unknown): value is HeaderLike {
     value !== null &&
     typeof (value as HeaderLike).get === 'function'
   )
+}
+
+function isHeadersInstance(value: unknown): value is Headers {
+  return typeof Headers !== 'undefined' && value instanceof Headers
+}
+
+function hasHeadersProperty(value: unknown): value is { headers: unknown } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'headers' in (value as { headers?: unknown })
+  )
+}
+
+function toHeaderLike(value: HeaderSource | null | undefined): HeaderLike | undefined {
+  if (!value) {
+    return undefined
+  }
+
+  if (isHeaderLike(value)) {
+    return value
+  }
+
+  if (isHeadersInstance(value)) {
+    return value
+  }
+
+  if (hasHeadersProperty(value)) {
+    return toHeaderLike(value.headers as HeaderSource)
+  }
+
+  try {
+    return new Headers(value as HeadersInit)
+  } catch {
+    return undefined
+  }
 }
 
 function takePrimaryHeaderValue(value?: string | null) {
@@ -184,15 +228,16 @@ function buildHeaderDerivedUrl(headersList: HeaderLike) {
 }
 
 async function getHeaders(
-  providedHeaders?: MaybePromise<HeaderLike | null | undefined>
+  providedHeaders?: MaybePromise<HeaderSource | null | undefined>
 ): Promise<HeaderLike> {
   if (providedHeaders) {
     const resolved = isPromiseLike(providedHeaders)
       ? await providedHeaders
       : providedHeaders
 
-    if (resolved && isHeaderLike(resolved)) {
-      return resolved
+    const headerLike = toHeaderLike(resolved ?? undefined)
+    if (headerLike) {
+      return headerLike
     }
   }
 
@@ -202,8 +247,11 @@ async function getHeaders(
       ? await nextResolved
       : nextResolved
 
-    if (resolvedNext && isHeaderLike(resolvedNext)) {
-      return resolvedNext
+    if (resolvedNext) {
+      const headerLike = toHeaderLike(resolvedNext)
+      if (headerLike) {
+        return headerLike
+      }
     }
   } catch (error) {
     console.warn('Failed to resolve Next.js headers. Falling back.', error)
@@ -219,9 +267,10 @@ function fallbackBaseUrl() {
 /**
  * Helper function to get base URL from headers
  * Extracts URL information from Next.js request headers
+ * Accepts Next.js `headers()`, native `Request` objects or any `HeadersInit` source.
  */
 export async function getBaseUrlFromHeaders(
-  providedHeaders?: MaybePromise<HeaderLike | null | undefined>
+  providedHeaders?: MaybePromise<HeaderSource | null | undefined>
 ): Promise<URL> {
   const headersList = await getHeaders(providedHeaders)
 
@@ -231,10 +280,11 @@ export async function getBaseUrlFromHeaders(
 /**
  * Resolves the base URL using environment variables or headers
  * Centralises the base URL resolution logic used across the application
+ * Accepts the same flexible header inputs as {@link getBaseUrlFromHeaders}.
  * @returns A URL object representing the base URL
  */
 export async function getBaseUrl(
-  providedHeaders?: MaybePromise<HeaderLike | null | undefined>
+  providedHeaders?: MaybePromise<HeaderSource | null | undefined>
 ): Promise<URL> {
   const headersList = await getHeaders(providedHeaders)
 
@@ -286,7 +336,7 @@ export async function getBaseUrl(
  * @returns A string representation of the base URL
  */
 export async function getBaseUrlString(
-  providedHeaders?: MaybePromise<HeaderLike | null | undefined>
+  providedHeaders?: MaybePromise<HeaderSource | null | undefined>
 ): Promise<string> {
   const baseUrl = await getBaseUrl(providedHeaders)
   return baseUrl.toString()

@@ -249,3 +249,8 @@ ensures that features relying on absolute URLs—such as advanced SearXNG
 searches, shareable chat links, and model configuration—continue to work
 correctly on every mapped domain while keeping local development seamless.
 
+The helper utilities in `@/lib/utils/url` accept any header-like source. You can
+pass the result of `headers()` in a Next.js route handler, a native `Request`
+object, or even a plain header record when resolving URLs during background
+tasks.
+
