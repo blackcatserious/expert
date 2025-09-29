@@ -265,5 +265,7 @@ contexts.
 The helper utilities in `@/lib/utils/url` accept any header-like source. You can
 pass the result of `headers()` in a Next.js route handler, a native `Request`
 object, or even a plain header record when resolving URLs during background
-tasks.
+tasks. If you need to change `BASE_URL`-related environment variables between
+tests, call `resetBaseUrlCache()` from the same module so subsequent assertions
+pick up the updated values.
 

@@ -615,3 +615,14 @@ export async function getBaseUrlString(
   const baseUrl = await getBaseUrl(providedHeaders)
   return baseUrl.toString()
 }
+
+/**
+ * Clears any memoised URL state so subsequent calls re-read environment values.
+ * This is primarily useful for tests that mutate process.env between assertions.
+ */
+export function resetBaseUrlCache() {
+  cachedBaseUrlEnv = undefined
+  cachedBaseUrlCandidates = undefined
+  cachedDeploymentUrlEnv = undefined
+  cachedDeploymentUrl = undefined
+}
