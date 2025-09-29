@@ -3,6 +3,29 @@ import { headers as nextHeaders } from 'next/headers'
 const DEFAULT_BASE_URL = 'http://localhost:3000'
 const DOMAIN_ONLY_REGEX = /^[A-Za-z0-9.-]+(:\d+)?$/
 
+type HeaderLike = {
+  get(name: string): string | null | undefined
+}
+
+type MaybePromise<T> = T | Promise<T>
+
+function isPromiseLike<T>(value: unknown): value is PromiseLike<T> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'then' in value &&
+    typeof (value as PromiseLike<T>).then === 'function'
+  )
+}
+
+function isHeaderLike(value: unknown): value is HeaderLike {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as HeaderLike).get === 'function'
+  )
+}
+
 function takePrimaryHeaderValue(value?: string | null) {
   if (!value) {
     return undefined
@@ -13,7 +36,7 @@ function takePrimaryHeaderValue(value?: string | null) {
 }
 
 function parseForwardedPart(
-  forwardedHeader: string | null,
+  forwardedHeader: string | null | undefined,
   key: 'host' | 'proto'
 ) {
   const primaryForwarded = takePrimaryHeaderValue(forwardedHeader)
@@ -111,7 +134,7 @@ function readBaseUrlCandidates() {
     .filter((candidate): candidate is URL => Boolean(candidate))
 }
 
-function buildHeaderDerivedUrl(headersList: Headers) {
+function buildHeaderDerivedUrl(headersList: HeaderLike) {
   const directBaseUrl = takePrimaryHeaderValue(headersList.get('x-base-url'))
   if (directBaseUrl) {
     try {
@@ -160,12 +183,29 @@ function buildHeaderDerivedUrl(headersList: Headers) {
   return undefined
 }
 
-function getHeaders(providedHeaders?: Headers) {
+async function getHeaders(
+  providedHeaders?: MaybePromise<HeaderLike | null | undefined>
+): Promise<HeaderLike> {
   if (providedHeaders) {
-    return providedHeaders
+    const resolved = isPromiseLike(providedHeaders)
+      ? await providedHeaders
+      : providedHeaders
+
+    if (resolved && isHeaderLike(resolved)) {
+      return resolved
+    }
   }
 
-  return nextHeaders()
+  const nextResolved = nextHeaders()
+  const resolvedNext = isPromiseLike(nextResolved)
+    ? await nextResolved
+    : nextResolved
+
+  if (resolvedNext && isHeaderLike(resolvedNext)) {
+    return resolvedNext
+  }
+
+  return new Headers()
 }
 
 function fallbackBaseUrl() {
@@ -177,9 +217,9 @@ function fallbackBaseUrl() {
  * Extracts URL information from Next.js request headers
  */
 export async function getBaseUrlFromHeaders(
-  providedHeaders?: Headers
+  providedHeaders?: MaybePromise<HeaderLike | null | undefined>
 ): Promise<URL> {
-  const headersList = getHeaders(providedHeaders)
+  const headersList = await getHeaders(providedHeaders)
 
   return buildHeaderDerivedUrl(headersList) ?? fallbackBaseUrl()
 }
@@ -189,8 +229,10 @@ export async function getBaseUrlFromHeaders(
  * Centralises the base URL resolution logic used across the application
  * @returns A URL object representing the base URL
  */
-export async function getBaseUrl(providedHeaders?: Headers): Promise<URL> {
-  const headersList = getHeaders(providedHeaders)
+export async function getBaseUrl(
+  providedHeaders?: MaybePromise<HeaderLike | null | undefined>
+): Promise<URL> {
+  const headersList = await getHeaders(providedHeaders)
 
   const forwardedHeader = headersList.get('forwarded')
   const forwardedHost = parseForwardedPart(forwardedHeader, 'host')
@@ -240,7 +282,7 @@ export async function getBaseUrl(providedHeaders?: Headers): Promise<URL> {
  * @returns A string representation of the base URL
  */
 export async function getBaseUrlString(
-  providedHeaders?: Headers
+  providedHeaders?: MaybePromise<HeaderLike | null | undefined>
 ): Promise<string> {
   const baseUrl = await getBaseUrl(providedHeaders)
   return baseUrl.toString()
