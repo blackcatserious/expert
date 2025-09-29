@@ -123,16 +123,10 @@ function fallbackBaseUrl() {
   return new URL(DEFAULT_BASE_URL_STRING)
 }
 
-/**
- * Helper function to get base URL from headers
- * Extracts URL information from Next.js request headers
- */
-export async function getBaseUrlFromHeaders(
-  providedHeaders?: Headers
-): Promise<URL> {
-  const headersList = providedHeaders ?? (await headers())
-
-  const directBaseUrl = headersList.get('x-base-url')
+function resolveBaseUrlFromHeadersList(
+  headersList: Headers
+): URL | undefined {
+  const directBaseUrl = takeFirstHeaderValue(headersList.get('x-base-url'))
   if (directBaseUrl) {
     try {
       return new URL(directBaseUrl)
@@ -141,7 +135,7 @@ export async function getBaseUrlFromHeaders(
     }
   }
 
-  const preConstructedUrl = headersList.get('x-url')
+  const preConstructedUrl = takeFirstHeaderValue(headersList.get('x-url'))
   if (preConstructedUrl) {
     try {
       return new URL(preConstructedUrl)
@@ -174,7 +168,19 @@ export async function getBaseUrlFromHeaders(
     }
   }
 
-  return fallbackBaseUrl()
+  return undefined
+}
+
+/**
+ * Helper function to get base URL from headers
+ * Extracts URL information from Next.js request headers
+ */
+export async function getBaseUrlFromHeaders(
+  providedHeaders?: Headers
+): Promise<URL> {
+  const headersList = providedHeaders ?? (await headers())
+
+  return resolveBaseUrlFromHeadersList(headersList) ?? fallbackBaseUrl()
 }
 
 /**
@@ -184,7 +190,10 @@ export async function getBaseUrlFromHeaders(
  */
 export async function getBaseUrl(providedHeaders?: Headers): Promise<URL> {
   const headersList = providedHeaders ?? (await headers())
+  const forwardedHeader = headersList.get('forwarded')
+  const forwardedHost = parseForwardedHeader(forwardedHeader, 'host')
   const hostFromHeaders =
+    forwardedHost ||
     takeFirstHeaderValue(headersList.get('x-forwarded-host')) ||
     takeFirstHeaderValue(headersList.get('x-host')) ||
     takeFirstHeaderValue(headersList.get('host')) ||
@@ -211,7 +220,12 @@ export async function getBaseUrl(providedHeaders?: Headers): Promise<URL> {
         return new URL(matchingCandidate.toString())
       }
 
-      return getBaseUrlFromHeaders(headersList)
+      const headerDerivedUrl = resolveBaseUrlFromHeadersList(headersList)
+      if (headerDerivedUrl) {
+        return headerDerivedUrl
+      }
+
+      return new URL(baseUrlCandidates[0].toString())
     }
 
     return new URL(baseUrlCandidates[0].toString())
