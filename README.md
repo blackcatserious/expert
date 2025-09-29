@@ -169,7 +169,9 @@ The deployment automatically respects `BASE_URL` if you configure it for
 multiple domains. When no base URLs are provided Morphic now falls back to the
 `VERCEL_URL` (or `NEXT_PUBLIC_VERCEL_URL`) environment variable so background
 jobs and static generation still produce shareable links that point at your live
-domain instead of `localhost`.
+domain instead of `localhost`. Header-derived hosts default to `https://` unless
+the hostname resolves to a local machine, so production deployments generate
+secure absolute links without any extra configuration.
 
 ### Docker Prebuilt Image
 

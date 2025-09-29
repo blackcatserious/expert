@@ -274,11 +274,48 @@ function parseHeaderUrl(
   }
 }
 
+function isLocalHostname(hostname: string) {
+  if (!hostname) {
+    return false
+  }
+
+  if (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '0.0.0.0' ||
+    hostname === '::1'
+  ) {
+    return true
+  }
+
+  if (hostname.endsWith('.localhost') || hostname.endsWith('.local')) {
+    return true
+  }
+
+  if (/^10\./.test(hostname) || /^192\.168\./.test(hostname)) {
+    return true
+  }
+
+  if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname)) {
+    return true
+  }
+
+  return false
+}
+
+function inferProtocolForHost(host: NormalisedHost, protocol?: string) {
+  if (protocol && protocol.length > 0) {
+    return protocol
+  }
+
+  return isLocalHostname(host.hostname) ? 'http' : 'https'
+}
+
 function constructUrlFromHost(
   host: NormalisedHost,
   protocol?: string
 ): URL | undefined {
-  const effectiveProtocol = protocol && protocol.length > 0 ? protocol : 'http'
+  const effectiveProtocol = inferProtocolForHost(host, protocol)
 
   try {
     return new URL(`${effectiveProtocol}://${host.host}`)

@@ -244,7 +244,10 @@ letter-case) against each configured URL and picks the matching one. Bare domain
 entries are automatically converted to `https://` URLs, making it easier to keep
 the configuration readable when you manage multiple public domains. If no match
 is found Morphic reuses the host reported by the incoming request headers (with
-support for common proxy headers) before falling back to the first entry. This
+support for common proxy headers) before falling back to the first entry. Header
+derived hosts automatically default to `https://` unless the hostname clearly
+points to a local machine (e.g. `localhost`, `*.local`, or RFC 1918 IP ranges),
+keeping production URLs secure while leaving development URLs untouched. This
 ensures that features relying on absolute URLs—such as advanced SearXNG
 searches, shareable chat links, and model configuration—continue to work
 correctly on every mapped domain while keeping local development seamless.
