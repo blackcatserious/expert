@@ -1,87 +1,22 @@
-import { headers } from 'next/headers'
+import { headers as nextHeaders } from 'next/headers'
 
-const DEFAULT_BASE_URL_STRING = 'http://localhost:3000'
+const DEFAULT_BASE_URL = 'http://localhost:3000'
 const DOMAIN_ONLY_REGEX = /^[A-Za-z0-9.-]+(:\d+)?$/
 
-function takeFirstHeaderValue(value?: string | null) {
+function takePrimaryHeaderValue(value?: string | null) {
   if (!value) {
     return undefined
   }
 
-  const firstValue = value.split(',')[0]?.trim()
-  return firstValue || undefined
+  const primary = value.split(',')[0]?.trim()
+  return primary || undefined
 }
 
-function normaliseHost(host?: string | null) {
-  const primaryHost = takeFirstHeaderValue(host)
-
-  if (!primaryHost) {
-    return undefined
-  }
-
-  try {
-    const parsedHost = new URL(`http://${primaryHost}`)
-    return {
-      host: parsedHost.host.toLowerCase(),
-      hostname: parsedHost.hostname.toLowerCase(),
-    }
-  } catch {
-    const trimmedHost = primaryHost.trim().toLowerCase()
-
-    if (!trimmedHost) {
-      return undefined
-    }
-
-    const [hostname] = trimmedHost.split(':')
-    return {
-      host: trimmedHost,
-      hostname,
-    }
-  }
-}
-
-function buildUrl(candidate: string): URL | undefined {
-  const trimmedCandidate = candidate.trim()
-
-  if (!trimmedCandidate) {
-    return undefined
-  }
-
-  try {
-    return new URL(trimmedCandidate)
-  } catch (primaryError) {
-    if (DOMAIN_ONLY_REGEX.test(trimmedCandidate)) {
-      try {
-        return new URL(`https://${trimmedCandidate}`)
-      } catch (secondaryError) {
-        // Fall through to warn below
-      }
-    }
-
-    console.warn(
-      `Invalid BASE_URL candidate "${trimmedCandidate}". Ignoring this value.`,
-      primaryError
-    )
-    return undefined
-  }
-}
-
-function parseBaseUrlCandidates(baseUrlEnv: string | undefined): URL[] {
-  if (!baseUrlEnv) {
-    return []
-  }
-
-  return baseUrlEnv
-    .split(',')
-    .map(buildUrl)
-    .filter((candidate): candidate is URL => Boolean(candidate))
-}
-
-function parseForwardedHeader(
+function parseForwardedPart(
   forwardedHeader: string | null,
   key: 'host' | 'proto'
-): string | undefined {
-  const primaryForwarded = takeFirstHeaderValue(forwardedHeader)
+) {
+  const primaryForwarded = takePrimaryHeaderValue(forwardedHeader)
 
   if (!primaryForwarded) {
     return undefined
@@ -93,40 +28,91 @@ function parseForwardedHeader(
       continue
     }
 
-    if (rawKey.trim().toLowerCase() === key) {
-      const rawValue = rawValueParts.join('=')
-      const cleanedValue = rawValue.trim().replace(/^"|"$/g, '')
-      return cleanedValue || undefined
+    if (rawKey.trim().toLowerCase() !== key) {
+      continue
     }
+
+    const rawValue = rawValueParts.join('=')
+    const cleaned = rawValue.trim().replace(/^"|"$/g, '')
+    return cleaned || undefined
   }
 
   return undefined
 }
 
-function ensureProtocol(protocol: string | undefined | null) {
-  const primaryProtocol = takeFirstHeaderValue(protocol)
+function normaliseHostValue(host?: string | null) {
+  const primaryHost = takePrimaryHeaderValue(host)
 
-  if (!primaryProtocol) {
-    return 'http'
+  if (!primaryHost) {
+    return undefined
   }
 
-  const trimmedProtocol = primaryProtocol.trim().toLowerCase()
+  try {
+    const parsed = new URL(`http://${primaryHost}`)
+    return {
+      host: parsed.host.toLowerCase(),
+      hostname: parsed.hostname.toLowerCase(),
+    }
+  } catch {
+    const trimmed = primaryHost.trim().toLowerCase()
 
-  if (!trimmedProtocol) {
-    return 'http'
+    if (!trimmed) {
+      return undefined
+    }
+
+    const [hostname] = trimmed.split(':')
+    return {
+      host: trimmed,
+      hostname,
+    }
+  }
+}
+
+function parseUrlCandidate(candidate: string) {
+  const trimmed = candidate.trim()
+
+  if (!trimmed) {
+    return undefined
   }
 
-  return trimmedProtocol.replace(/:$/, '')
+  try {
+    return new URL(trimmed)
+  } catch (primaryError) {
+    if (DOMAIN_ONLY_REGEX.test(trimmed)) {
+      try {
+        return new URL(`https://${trimmed}`)
+      } catch (secondaryError) {
+        console.warn(
+          `Invalid BASE_URL candidate "${trimmed}". Ignoring this value.`,
+          secondaryError
+        )
+        return undefined
+      }
+    }
+
+    console.warn(
+      `Invalid BASE_URL candidate "${trimmed}". Ignoring this value.`,
+      primaryError
+    )
+    return undefined
+  }
 }
 
-function fallbackBaseUrl() {
-  return new URL(DEFAULT_BASE_URL_STRING)
+function readBaseUrlCandidates() {
+  const baseUrlEnv = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL
+
+  if (!baseUrlEnv) {
+    return []
+  }
+
+  return baseUrlEnv
+    .split(',')
+    .map(parseUrlCandidate)
+    .filter((candidate): candidate is URL => Boolean(candidate))
 }
 
-function resolveBaseUrlFromHeadersList(
-  headersList: Headers
-): URL | undefined {
-  const directBaseUrl = takeFirstHeaderValue(headersList.get('x-base-url'))
+function buildHeaderDerivedUrl(headersList: Headers) {
+  const directBaseUrl = takePrimaryHeaderValue(headersList.get('x-base-url'))
   if (directBaseUrl) {
     try {
       return new URL(directBaseUrl)
@@ -135,40 +121,55 @@ function resolveBaseUrlFromHeadersList(
     }
   }
 
-  const preConstructedUrl = takeFirstHeaderValue(headersList.get('x-url'))
-  if (preConstructedUrl) {
+  const preconstructed = takePrimaryHeaderValue(headersList.get('x-url'))
+  if (preconstructed) {
     try {
-      return new URL(preConstructedUrl)
+      return new URL(preconstructed)
     } catch (error) {
       console.warn('Invalid x-url header. Ignoring value.', error)
     }
   }
 
   const forwardedHeader = headersList.get('forwarded')
-  const forwardedHost = parseForwardedHeader(forwardedHeader, 'host')
-  const forwardedProto = parseForwardedHeader(forwardedHeader, 'proto')
+  const forwardedHost = parseForwardedPart(forwardedHeader, 'host')
+  const forwardedProto = parseForwardedPart(forwardedHeader, 'proto')
 
   const host =
     forwardedHost ||
-    takeFirstHeaderValue(headersList.get('x-forwarded-host')) ||
-    takeFirstHeaderValue(headersList.get('x-host')) ||
-    takeFirstHeaderValue(headersList.get('host'))
+    takePrimaryHeaderValue(headersList.get('x-forwarded-host')) ||
+    takePrimaryHeaderValue(headersList.get('x-host')) ||
+    takePrimaryHeaderValue(headersList.get('host'))
 
-  const protocol = ensureProtocol(
+  const protocol =
     forwardedProto ||
-      headersList.get('x-forwarded-proto') ||
-      headersList.get('x-protocol')
-  )
+    takePrimaryHeaderValue(headersList.get('x-forwarded-proto')) ||
+    takePrimaryHeaderValue(headersList.get('x-protocol')) ||
+    'http'
 
   if (host) {
+    const normalisedProtocol = protocol.replace(/:$/, '').trim().toLowerCase()
+    const effectiveProtocol = normalisedProtocol || 'http'
+
     try {
-      return new URL(`${protocol}://${host}`)
+      return new URL(`${effectiveProtocol}://${host}`)
     } catch (error) {
       console.warn('Unable to construct base URL from headers. Falling back.', error)
     }
   }
 
   return undefined
+}
+
+function getHeaders(providedHeaders?: Headers) {
+  if (providedHeaders) {
+    return providedHeaders
+  }
+
+  return nextHeaders()
+}
+
+function fallbackBaseUrl() {
+  return new URL(DEFAULT_BASE_URL)
 }
 
 /**
@@ -178,9 +179,9 @@ function resolveBaseUrlFromHeadersList(
 export async function getBaseUrlFromHeaders(
   providedHeaders?: Headers
 ): Promise<URL> {
-  const headersList = providedHeaders ?? (await headers())
+  const headersList = getHeaders(providedHeaders)
 
-  return resolveBaseUrlFromHeadersList(headersList) ?? fallbackBaseUrl()
+  return buildHeaderDerivedUrl(headersList) ?? fallbackBaseUrl()
 }
 
 /**
@@ -189,49 +190,48 @@ export async function getBaseUrlFromHeaders(
  * @returns A URL object representing the base URL
  */
 export async function getBaseUrl(providedHeaders?: Headers): Promise<URL> {
-  const headersList = providedHeaders ?? (await headers())
+  const headersList = getHeaders(providedHeaders)
+
   const forwardedHeader = headersList.get('forwarded')
-  const forwardedHost = parseForwardedHeader(forwardedHeader, 'host')
-  const hostFromHeaders =
+  const forwardedHost = parseForwardedPart(forwardedHeader, 'host')
+
+  const requestHost =
     forwardedHost ||
-    takeFirstHeaderValue(headersList.get('x-forwarded-host')) ||
-    takeFirstHeaderValue(headersList.get('x-host')) ||
-    takeFirstHeaderValue(headersList.get('host')) ||
-    undefined
+    takePrimaryHeaderValue(headersList.get('x-forwarded-host')) ||
+    takePrimaryHeaderValue(headersList.get('x-host')) ||
+    takePrimaryHeaderValue(headersList.get('host'))
 
-  const baseUrlEnv = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL
-  const baseUrlCandidates = parseBaseUrlCandidates(baseUrlEnv)
+  const normalisedRequestHost = normaliseHostValue(requestHost)
 
-  if (baseUrlCandidates.length > 0) {
-    const normalisedRequestHost = normaliseHost(hostFromHeaders)
+  const candidates = readBaseUrlCandidates()
 
-    if (normalisedRequestHost) {
-      const matchingCandidate = baseUrlCandidates.find(candidate => {
-        const candidateHost = candidate.host.toLowerCase()
-        const candidateHostname = candidate.hostname.toLowerCase()
+  if (candidates.length > 0 && normalisedRequestHost) {
+    const match = candidates.find(candidate => {
+      const candidateHost = candidate.host.toLowerCase()
+      const candidateHostname = candidate.hostname.toLowerCase()
 
-        return (
-          candidateHost === normalisedRequestHost.host ||
-          candidateHostname === normalisedRequestHost.hostname
-        )
-      })
+      return (
+        candidateHost === normalisedRequestHost.host ||
+        candidateHostname === normalisedRequestHost.hostname
+      )
+    })
 
-      if (matchingCandidate) {
-        return new URL(matchingCandidate.toString())
-      }
-
-      const headerDerivedUrl = resolveBaseUrlFromHeadersList(headersList)
-      if (headerDerivedUrl) {
-        return headerDerivedUrl
-      }
-
-      return new URL(baseUrlCandidates[0].toString())
+    if (match) {
+      return new URL(match.toString())
     }
-
-    return new URL(baseUrlCandidates[0].toString())
   }
 
-  return getBaseUrlFromHeaders(headersList)
+  const headerDerived = buildHeaderDerivedUrl(headersList)
+
+  if (headerDerived) {
+    return headerDerived
+  }
+
+  if (candidates.length > 0) {
+    return new URL(candidates[0].toString())
+  }
+
+  return fallbackBaseUrl()
 }
 
 /**
@@ -242,6 +242,6 @@ export async function getBaseUrl(providedHeaders?: Headers): Promise<URL> {
 export async function getBaseUrlString(
   providedHeaders?: Headers
 ): Promise<string> {
-  const baseUrlObj = await getBaseUrl(providedHeaders)
-  return baseUrlObj.toString()
+  const baseUrl = await getBaseUrl(providedHeaders)
+  return baseUrl.toString()
 }
