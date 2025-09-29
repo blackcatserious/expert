@@ -508,11 +508,16 @@ async function resolveProvidedHeaders(
     return undefined
   }
 
-  const resolved = isPromiseLike(providedHeaders)
-    ? await providedHeaders
-    : providedHeaders
+  try {
+    const resolved = isPromiseLike(providedHeaders)
+      ? await providedHeaders
+      : providedHeaders
 
-  return toHeaderLike(resolved ?? undefined)
+    return toHeaderLike(resolved ?? undefined)
+  } catch (error) {
+    console.warn('Failed to resolve provided headers. Falling back.', error)
+    return undefined
+  }
 }
 
 async function resolveNextHeaders(): Promise<HeaderLike | undefined> {
