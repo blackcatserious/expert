@@ -327,14 +327,16 @@ export async function getBaseUrl(
   const context = resolveHeaderContext(headersList)
   const candidates = readBaseUrlCandidates()
 
-  if (candidates.length > 0 && context.host) {
+  const contextHost = context.host
+
+  if (candidates.length > 0 && contextHost) {
     const match = candidates.find(candidate => {
       const candidateHost = candidate.host.toLowerCase()
       const candidateHostname = candidate.hostname.toLowerCase()
 
       return (
-        candidateHost === context.host.host ||
-        candidateHostname === context.host.hostname
+        candidateHost === contextHost.host ||
+        candidateHostname === contextHost.hostname
       )
     })
 
@@ -345,7 +347,7 @@ export async function getBaseUrl(
 
   const headerDerived =
     context.directUrl ||
-    (context.host ? constructUrlFromHost(context.host, context.protocol) : undefined)
+    (contextHost ? constructUrlFromHost(contextHost, context.protocol) : undefined)
 
   if (headerDerived) {
     return headerDerived
