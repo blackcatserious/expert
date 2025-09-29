@@ -1,14 +1,101 @@
 import { headers } from 'next/headers'
 
-function parseBaseUrlCandidates(baseUrlEnv: string | undefined) {
+const DEFAULT_BASE_URL_STRING = 'http://localhost:3000'
+const DOMAIN_ONLY_REGEX = /^[A-Za-z0-9.-]+(:\d+)?$/
+
+function normaliseHost(host?: string | null) {
+  if (!host) {
+    return undefined
+  }
+
+  const trimmedHost = host.trim().toLowerCase()
+
+  if (!trimmedHost) {
+    return undefined
+  }
+
+  const [hostname] = trimmedHost.split(':')
+  return {
+    host: trimmedHost,
+    hostname,
+  }
+}
+
+function buildUrl(candidate: string): URL | undefined {
+  const trimmedCandidate = candidate.trim()
+
+  if (!trimmedCandidate) {
+    return undefined
+  }
+
+  try {
+    return new URL(trimmedCandidate)
+  } catch (primaryError) {
+    if (DOMAIN_ONLY_REGEX.test(trimmedCandidate)) {
+      try {
+        return new URL(`https://${trimmedCandidate}`)
+      } catch (secondaryError) {
+        // Fall through to warn below
+      }
+    }
+
+    console.warn(
+      `Invalid BASE_URL candidate "${trimmedCandidate}". Ignoring this value.`,
+      primaryError
+    )
+    return undefined
+  }
+}
+
+function parseBaseUrlCandidates(baseUrlEnv: string | undefined): URL[] {
   if (!baseUrlEnv) {
-    return [] as string[]
+    return []
   }
 
   return baseUrlEnv
     .split(',')
-    .map(candidate => candidate.trim())
-    .filter(candidate => candidate.length > 0)
+    .map(buildUrl)
+    .filter((candidate): candidate is URL => Boolean(candidate))
+}
+
+function parseForwardedHeader(
+  forwardedHeader: string | null,
+  key: 'host' | 'proto'
+): string | undefined {
+  if (!forwardedHeader) {
+    return undefined
+  }
+
+  for (const part of forwardedHeader.split(';')) {
+    const [rawKey, rawValue] = part.split('=')
+    if (!rawKey || !rawValue) {
+      continue
+    }
+
+    if (rawKey.trim().toLowerCase() === key) {
+      return rawValue.trim().replace(/^"|"$/g, '')
+    }
+  }
+
+  return undefined
+}
+
+function ensureProtocol(protocol: string | undefined | null) {
+  if (!protocol) {
+    return 'http'
+  }
+
+  const trimmedProtocol = protocol.trim().toLowerCase()
+
+  if (!trimmedProtocol) {
+    return 'http'
+  }
+
+  return trimmedProtocol.replace(/:$/, '')
+}
+
+function fallbackBaseUrl() {
+  return new URL(DEFAULT_BASE_URL_STRING)
 }
 
 /**
@@ -19,77 +106,91 @@ export async function getBaseUrlFromHeaders(
   providedHeaders?: Headers
 ): Promise<URL> {
   const headersList = providedHeaders ?? (await headers())
-  const baseUrl = headersList.get('x-base-url')
-  const url = headersList.get('x-url')
-  const host = headersList.get('x-host')
-  const protocol = headersList.get('x-protocol') || 'http:'
 
-  try {
-    // Try to use the pre-constructed base URL if available
-    if (baseUrl) {
-      return new URL(baseUrl)
-    } else if (url) {
-      return new URL(url)
-    } else if (host) {
-      const constructedUrl = `${protocol}${
-        protocol.endsWith(':') ? '//' : '://'
-      }${host}`
-      return new URL(constructedUrl)
-    } else {
-      return new URL('http://localhost:3000')
+  const directBaseUrl = headersList.get('x-base-url')
+  if (directBaseUrl) {
+    try {
+      return new URL(directBaseUrl)
+    } catch (error) {
+      console.warn('Invalid x-base-url header. Ignoring value.', error)
     }
-  } catch (urlError) {
-    // Fallback to default URL if any error occurs during URL construction
-    return new URL('http://localhost:3000')
   }
+
+  const preConstructedUrl = headersList.get('x-url')
+  if (preConstructedUrl) {
+    try {
+      return new URL(preConstructedUrl)
+    } catch (error) {
+      console.warn('Invalid x-url header. Ignoring value.', error)
+    }
+  }
+
+  const forwardedHeader = headersList.get('forwarded')
+  const forwardedHost = parseForwardedHeader(forwardedHeader, 'host')
+  const forwardedProto = parseForwardedHeader(forwardedHeader, 'proto')
+
+  const host =
+    forwardedHost ||
+    headersList.get('x-forwarded-host') ||
+    headersList.get('x-host') ||
+    headersList.get('host')
+
+  const protocol = ensureProtocol(
+    forwardedProto ||
+      headersList.get('x-forwarded-proto') ||
+      headersList.get('x-protocol')
+  )
+
+  if (host) {
+    try {
+      return new URL(`${protocol}://${host}`)
+    } catch (error) {
+      console.warn('Unable to construct base URL from headers. Falling back.', error)
+    }
+  }
+
+  return fallbackBaseUrl()
 }
 
 /**
  * Resolves the base URL using environment variables or headers
- * Centralizes the base URL resolution logic used across the application
+ * Centralises the base URL resolution logic used across the application
  * @returns A URL object representing the base URL
  */
-export async function getBaseUrl(): Promise<URL> {
-  const headersList = await headers()
+export async function getBaseUrl(providedHeaders?: Headers): Promise<URL> {
+  const headersList = providedHeaders ?? (await headers())
   const hostFromHeaders =
-    headersList.get('x-host') || headersList.get('host') || undefined
+    headersList.get('x-forwarded-host') ||
+    headersList.get('x-host') ||
+    headersList.get('host') ||
+    undefined
 
-  // Check for environment variables first
   const baseUrlEnv = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL
   const baseUrlCandidates = parseBaseUrlCandidates(baseUrlEnv)
 
   if (baseUrlCandidates.length > 0) {
-    const matchingCandidate = baseUrlCandidates.find(candidate => {
-      try {
-        const parsedCandidate = new URL(candidate)
-        return hostFromHeaders
-          ? parsedCandidate.host === hostFromHeaders
-          : false
-      } catch (error) {
-        console.warn(
-          `Invalid BASE_URL candidate "${candidate}". Ignoring this value.`
+    const normalisedRequestHost = normaliseHost(hostFromHeaders)
+
+    if (normalisedRequestHost) {
+      const matchingCandidate = baseUrlCandidates.find(candidate => {
+        const candidateHost = candidate.host.toLowerCase()
+        const candidateHostname = candidate.hostname.toLowerCase()
+
+        return (
+          candidateHost === normalisedRequestHost.host ||
+          candidateHostname === normalisedRequestHost.hostname
         )
-        return false
+      })
+
+      if (matchingCandidate) {
+        return new URL(matchingCandidate.toString())
       }
-    })
-
-    if (matchingCandidate) {
-      console.log('Using BASE_URL matched to host:', matchingCandidate)
-      return new URL(matchingCandidate)
     }
 
-    try {
-      console.log('Using BASE_URL environment variable:', baseUrlCandidates[0])
-      return new URL(baseUrlCandidates[0])
-    } catch (error) {
-      console.warn(
-        'Invalid BASE_URL environment variable, falling back to headers'
-      )
-    }
+    return new URL(baseUrlCandidates[0].toString())
   }
 
-  // If no valid environment variable is available, use headers
-  return await getBaseUrlFromHeaders(headersList)
+  return getBaseUrlFromHeaders(headersList)
 }
 
 /**
@@ -97,7 +198,9 @@ export async function getBaseUrl(): Promise<URL> {
  * Convenience wrapper around getBaseUrl that returns a string
  * @returns A string representation of the base URL
  */
-export async function getBaseUrlString(): Promise<string> {
-  const baseUrlObj = await getBaseUrl()
+export async function getBaseUrlString(
+  providedHeaders?: Headers
+): Promise<string> {
+  const baseUrlObj = await getBaseUrl(providedHeaders)
   return baseUrlObj.toString()
 }

@@ -229,19 +229,22 @@ JINA_API_KEY=[YOUR_API_KEY]
 
 Use the `BASE_URL` (or `NEXT_PUBLIC_BASE_URL`) environment variable when you
 need to override the automatically detected host—for example, when the app is
-served behind a proxy or during static rendering. The value now supports a
+served behind a proxy or during static rendering. The value supports a
 comma-separated list of canonical URLs, which is useful when deploying the same
-instance across multiple domains.
+instance across multiple domains. Morphic checks both variables so you can set
+one value that works for server-side and client-side code alike.
 
 ```bash
 # Example: serve Morphic from multiple domains
 BASE_URL=https://traceremove.com,https://traceremove.net,https://traceremove.dev
 ```
 
-At runtime Morphic compares the incoming request host against each configured
-URL and picks the matching one. If no match is found it falls back to the first
-entry, and finally to the host reported by Next.js headers. This ensures that
-features relying on absolute URLs—such as advanced SearXNG searches, shareable
-chat links, and model configuration—continue to work correctly on every mapped
-domain.
+At runtime Morphic compares the incoming request host (ignoring port and
+letter-case) against each configured URL and picks the matching one. Bare domain
+entries are automatically converted to `https://` URLs, making it easier to keep
+the configuration readable when you manage multiple public domains. If no match
+is found Morphic falls back to the first entry, and finally to the host reported
+by the incoming request headers. This ensures that features relying on absolute
+URLs—such as advanced SearXNG searches, shareable chat links, and model
+configuration—continue to work correctly on every mapped domain.
 
