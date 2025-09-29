@@ -3,21 +3,40 @@ import { headers } from 'next/headers'
 const DEFAULT_BASE_URL_STRING = 'http://localhost:3000'
 const DOMAIN_ONLY_REGEX = /^[A-Za-z0-9.-]+(:\d+)?$/
 
+function takeFirstHeaderValue(value?: string | null) {
+  if (!value) {
+    return undefined
+  }
+
+  const firstValue = value.split(',')[0]?.trim()
+  return firstValue || undefined
+}
+
 function normaliseHost(host?: string | null) {
-  if (!host) {
+  const primaryHost = takeFirstHeaderValue(host)
+
+  if (!primaryHost) {
     return undefined
   }
 
-  const trimmedHost = host.trim().toLowerCase()
+  try {
+    const parsedHost = new URL(`http://${primaryHost}`)
+    return {
+      host: parsedHost.host.toLowerCase(),
+      hostname: parsedHost.hostname.toLowerCase(),
+    }
+  } catch {
+    const trimmedHost = primaryHost.trim().toLowerCase()
 
-  if (!trimmedHost) {
-    return undefined
-  }
+    if (!trimmedHost) {
+      return undefined
+    }
 
-  const [hostname] = trimmedHost.split(':')
-  return {
-    host: trimmedHost,
-    hostname,
+    const [hostname] = trimmedHost.split(':')
+    return {
+      host: trimmedHost,
+      hostname,
+    }
   }
 }
 
@@ -62,18 +81,22 @@ function parseForwardedHeader(
   forwardedHeader: string | null,
   key: 'host' | 'proto'
 ): string | undefined {
-  if (!forwardedHeader) {
+  const primaryForwarded = takeFirstHeaderValue(forwardedHeader)
+
+  if (!primaryForwarded) {
     return undefined
   }
 
-  for (const part of forwardedHeader.split(';')) {
-    const [rawKey, rawValue] = part.split('=')
-    if (!rawKey || !rawValue) {
+  for (const part of primaryForwarded.split(';')) {
+    const [rawKey, ...rawValueParts] = part.split('=')
+    if (!rawKey || rawValueParts.length === 0) {
       continue
     }
 
     if (rawKey.trim().toLowerCase() === key) {
-      return rawValue.trim().replace(/^"|"$/g, '')
+      const rawValue = rawValueParts.join('=')
+      const cleanedValue = rawValue.trim().replace(/^"|"$/g, '')
+      return cleanedValue || undefined
     }
   }
 
@@ -81,11 +104,13 @@ function parseForwardedHeader(
 }
 
 function ensureProtocol(protocol: string | undefined | null) {
-  if (!protocol) {
+  const primaryProtocol = takeFirstHeaderValue(protocol)
+
+  if (!primaryProtocol) {
     return 'http'
   }
 
-  const trimmedProtocol = protocol.trim().toLowerCase()
+  const trimmedProtocol = primaryProtocol.trim().toLowerCase()
 
   if (!trimmedProtocol) {
     return 'http'
@@ -131,9 +156,9 @@ export async function getBaseUrlFromHeaders(
 
   const host =
     forwardedHost ||
-    headersList.get('x-forwarded-host') ||
-    headersList.get('x-host') ||
-    headersList.get('host')
+    takeFirstHeaderValue(headersList.get('x-forwarded-host')) ||
+    takeFirstHeaderValue(headersList.get('x-host')) ||
+    takeFirstHeaderValue(headersList.get('host'))
 
   const protocol = ensureProtocol(
     forwardedProto ||
@@ -160,9 +185,9 @@ export async function getBaseUrlFromHeaders(
 export async function getBaseUrl(providedHeaders?: Headers): Promise<URL> {
   const headersList = providedHeaders ?? (await headers())
   const hostFromHeaders =
-    headersList.get('x-forwarded-host') ||
-    headersList.get('x-host') ||
-    headersList.get('host') ||
+    takeFirstHeaderValue(headersList.get('x-forwarded-host')) ||
+    takeFirstHeaderValue(headersList.get('x-host')) ||
+    takeFirstHeaderValue(headersList.get('host')) ||
     undefined
 
   const baseUrlEnv = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL
@@ -185,6 +210,8 @@ export async function getBaseUrl(providedHeaders?: Headers): Promise<URL> {
       if (matchingCandidate) {
         return new URL(matchingCandidate.toString())
       }
+
+      return getBaseUrlFromHeaders(headersList)
     }
 
     return new URL(baseUrlCandidates[0].toString())
