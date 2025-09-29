@@ -6,8 +6,8 @@ import {
 } from 'ai'
 import { z } from 'zod'
 
-import { searchSchema } from '../schema/search'
 import { retrieveSchema } from '../schema/retrieve'
+import { searchSchema } from '../schema/search'
 import { search } from '../tools/search'
 import { retrieveTool } from '../tools/retrieve'
 import { videoSearchTool } from '../tools/video-search'
