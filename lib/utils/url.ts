@@ -94,6 +94,76 @@ function takePrimaryHeaderValue(value?: string | null) {
   return primary || undefined
 }
 
+function isDefaultPortForProtocol(port: string, protocol?: string) {
+  if (!protocol) {
+    return false
+  }
+
+  if (protocol === 'http' && port === '80') {
+    return true
+  }
+
+  if (protocol === 'https' && port === '443') {
+    return true
+  }
+
+  return false
+}
+
+function normalisePort(portValue?: string | null) {
+  const primary = takePrimaryHeaderValue(portValue)
+
+  if (!primary) {
+    return undefined
+  }
+
+  const trimmed = primary.trim()
+
+  if (!/^\d+$/.test(trimmed)) {
+    return undefined
+  }
+
+  return trimmed
+}
+
+function mergeHostAndPort(
+  hostValue?: string | null,
+  port?: string,
+  protocol?: string
+) {
+  if (!hostValue) {
+    return undefined
+  }
+
+  const trimmedHost = hostValue.trim()
+
+  if (!trimmedHost) {
+    return undefined
+  }
+
+  if (!port) {
+    return trimmedHost
+  }
+
+  try {
+    const parsed = new URL(`http://${trimmedHost}`)
+    if (parsed.port) {
+      return trimmedHost
+    }
+  } catch {
+    // If URL parsing fails we fall back to string heuristics below.
+    if (trimmedHost.includes(':')) {
+      return trimmedHost
+    }
+  }
+
+  if (isDefaultPortForProtocol(port, protocol)) {
+    return trimmedHost
+  }
+
+  return `${trimmedHost}:${port}`
+}
+
 function parseForwardedPart(
   forwardedHeader: string | null | undefined,
   key: 'host' | 'proto'
@@ -345,22 +415,30 @@ function resolveHeaderContext(headersList: HeaderLike): ResolvedHeaderContext {
   const forwardedHost = parseForwardedPart(forwardedHeader, 'host')
   const forwardedProto = parseForwardedPart(forwardedHeader, 'proto')
 
-  const host =
-    forwardedHost ||
-    takePrimaryHeaderValue(headersList.get('x-forwarded-host')) ||
-    takePrimaryHeaderValue(headersList.get('x-host')) ||
-    takePrimaryHeaderValue(headersList.get('host'))
-
   const protocol =
     forwardedProto ||
     takePrimaryHeaderValue(headersList.get('x-forwarded-proto')) ||
     takePrimaryHeaderValue(headersList.get('x-protocol')) ||
     undefined
+  const normalisedProtocol = normaliseProtocol(protocol)
+
+  const forwardedPort =
+    normalisePort(headersList.get('x-forwarded-port')) ||
+    normalisePort(headersList.get('x-port')) ||
+    undefined
+
+  const rawHost =
+    forwardedHost ||
+    takePrimaryHeaderValue(headersList.get('x-forwarded-host')) ||
+    takePrimaryHeaderValue(headersList.get('x-host')) ||
+    takePrimaryHeaderValue(headersList.get('host'))
+
+  const host = mergeHostAndPort(rawHost, forwardedPort, normalisedProtocol) || rawHost
 
   return {
     directUrl,
     host: normaliseHostValue(host),
-    protocol: normaliseProtocol(protocol),
+    protocol: normalisedProtocol,
   }
 }
 

@@ -250,7 +250,10 @@ points to a local machine (e.g. `localhost`, `*.local`, or RFC 1918 IP ranges),
 keeping production URLs secure while leaving development URLs untouched. This
 ensures that features relying on absolute URLs—such as advanced SearXNG
 searches, shareable chat links, and model configuration—continue to work
-correctly on every mapped domain while keeping local development seamless.
+correctly on every mapped domain while keeping local development seamless. If
+your proxy strips port information from the `Host` header, Morphic will honour
+`X-Forwarded-Port` (or `X-Port`) so generated URLs retain the expected port while
+still matching the configured canonical domains.
 
 When deploying to Vercel without an explicit `BASE_URL`, Morphic now falls back
 to the `VERCEL_URL` (or `NEXT_PUBLIC_VERCEL_URL`) environment variable before

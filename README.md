@@ -171,7 +171,9 @@ multiple domains. When no base URLs are provided Morphic now falls back to the
 jobs and static generation still produce shareable links that point at your live
 domain instead of `localhost`. Header-derived hosts default to `https://` unless
 the hostname resolves to a local machine, so production deployments generate
-secure absolute links without any extra configuration.
+secure absolute links without any extra configuration. If your proxy strips the
+port from `Host`, Morphic now respects `X-Forwarded-Port`/`X-Port` so URLs keep
+their custom ports while still matching configured domains.
 
 ### Docker Prebuilt Image
 
