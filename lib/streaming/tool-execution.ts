@@ -1,9 +1,4 @@
-import {
-  CoreMessage,
-  DataStreamWriter,
-  JSONValue,
-  generateId
-} from 'ai'
+import { CoreMessage, DataStreamWriter, generateId, JSONValue } from 'ai'
 import { z } from 'zod'
 
 import { retrieveSchema } from '../schema/retrieve'
@@ -54,11 +49,6 @@ export async function executeToolCall(
 
 type ToolName = 'search' | 'retrieve' | 'videoSearch'
 
-type ParsedToolParameters = {
-  tool: ToolName
-  parameters: Record<string, any>
-}
-
 interface ExecutePlannedToolsConfig {
   plan: ToolPlan
   dataStream: DataStreamWriter
@@ -73,11 +63,24 @@ interface ExecutedStep {
   error?: string
 }
 
-const searchParameterParser = searchSchema.partial()
-const retrieveParameterParser = retrieveSchema.partial()
-const videoSearchParameterParser = z
-  .object({ query: z.string() })
-  .merge(searchParameterParser.pick({ max_results: true }))
+const searchParameterParser = searchSchema
+const retrieveParameterParser = retrieveSchema
+const videoSearchParameterParser = z.object({
+  query: searchSchema.shape.query,
+  max_results: searchSchema.shape.max_results,
+  search_depth: z.enum(['basic', 'advanced']).optional(),
+  include_domains: searchSchema.shape.include_domains,
+  exclude_domains: searchSchema.shape.exclude_domains
+})
+
+type SearchParameters = z.infer<typeof searchParameterParser>
+type RetrieveParameters = z.infer<typeof retrieveParameterParser>
+type VideoSearchParameters = z.infer<typeof videoSearchParameterParser>
+
+type ParsedToolParameters =
+  | { tool: 'search'; parameters: SearchParameters }
+  | { tool: 'retrieve'; parameters: RetrieveParameters }
+  | { tool: 'videoSearch'; parameters: VideoSearchParameters }
 
 async function executePlannedTools({
   plan,
@@ -220,24 +223,21 @@ function parseInvocationParameters(
 ): ParsedToolParameters | null {
   try {
     switch (invocation.tool) {
-      case 'search': {
-        const params = searchParameterParser.parse(invocation.parameters)
-        if (!params.query) {
-          return null
+      case 'search':
+        return {
+          tool: 'search',
+          parameters: searchParameterParser.parse(invocation.parameters)
         }
-        return { tool: 'search', parameters: params }
-      }
-      case 'retrieve': {
-        const params = retrieveParameterParser.parse(invocation.parameters)
-        if (!params.url) {
-          return null
+      case 'retrieve':
+        return {
+          tool: 'retrieve',
+          parameters: retrieveParameterParser.parse(invocation.parameters)
         }
-        return { tool: 'retrieve', parameters: params }
-      }
-      case 'videoSearch': {
-        const params = videoSearchParameterParser.parse(invocation.parameters)
-        return { tool: 'videoSearch', parameters: params }
-      }
+      case 'videoSearch':
+        return {
+          tool: 'videoSearch',
+          parameters: videoSearchParameterParser.parse(invocation.parameters)
+        }
       default:
         return null
     }
@@ -249,14 +249,21 @@ function parseInvocationParameters(
 
 async function runTool(parsed: ParsedToolParameters) {
   switch (parsed.tool) {
-    case 'search':
+    case 'search': {
+      const normalizedSearchDepth =
+        parsed.parameters.search_depth === 'advanced' ||
+        parsed.parameters.search_depth === 'basic'
+          ? parsed.parameters.search_depth
+          : undefined
+
       return await search(
         parsed.parameters.query,
         parsed.parameters.max_results,
-        parsed.parameters.search_depth,
+        normalizedSearchDepth,
         parsed.parameters.include_domains,
         parsed.parameters.exclude_domains
       )
+    }
     case 'retrieve':
       return await retrieveTool.execute(parsed.parameters, {
         toolCallId: parsed.parameters.url,
