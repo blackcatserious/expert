@@ -8,8 +8,8 @@ import { z } from 'zod'
 
 import { retrieveSchema } from '../schema/retrieve'
 import { searchSchema } from '../schema/search'
-import { search } from '../tools/search'
 import { retrieveTool } from '../tools/retrieve'
+import { search } from '../tools/search'
 import { videoSearchTool } from '../tools/video-search'
 import { ExtendedCoreMessage, SearchResults } from '../types'
 
