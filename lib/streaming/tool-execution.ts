@@ -494,15 +494,18 @@ async function executePlannedTools({
   language
 }: ExecutePlannedToolsConfig): Promise<ToolExecutionResult | null> {
   const localization = getLocalization(language)
-  const invocations = plan.toolInvocations
-    .filter(invocation =>
-      ['search', 'retrieve', 'videoSearch'].includes(invocation.tool)
-    )
+  const rawInvocations = plan.toolInvocations ?? []
+  const supportedToolNames: ToolName[] = ['search', 'retrieve', 'videoSearch']
+  const filteredInvocations = rawInvocations.filter(invocation =>
+    supportedToolNames.includes(invocation.tool as ToolName)
+  )
+
+  const invocations = filteredInvocations
     .map(invocation => toolInvocationSchemaInternal.safeParse(invocation))
     .filter((parsed): parsed is z.SafeParseSuccess<InvocationData> => parsed.success)
     .map(parsed => parsed.data)
 
-  if (invocations.length === 0) {
+  if (invocations.length === 0 && filteredInvocations.length > 0) {
     return null
   }
 
@@ -574,10 +577,6 @@ async function executePlannedTools({
         error: message
       })
     }
-  }
-
-  if (executedSteps.length === 0) {
-    return null
   }
 
   const summary = buildExecutionSummary(executedSteps, localization)
@@ -747,9 +746,16 @@ function buildExecutionSummary(
   const filtered = parts.filter(Boolean).map(part => part.trim())
   const sourcesDirectory = formatSourcesDirectory(sources, localization)
 
+  const summaryBody =
+    filtered.length > 0
+      ? filtered.join('\n\n')
+      : steps.length === 0
+        ? localization.noToolsExecuted
+        : localization.noResultsFound
+
   const summary =
     `${localization.researchSummaryHeading}:\n\n` +
-    filtered.join('\n\n') +
+    summaryBody +
     (sourcesDirectory ? `\n\n${sourcesDirectory}` : '')
 
   return {
