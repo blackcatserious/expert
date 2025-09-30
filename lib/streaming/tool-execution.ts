@@ -10,9 +10,9 @@ import { ExtendedCoreMessage, SearchResults } from '../types'
 
 import {
   buildToolPlan,
+  DEFAULT_FINAL_RESPONSE_INSTRUCTION,
   getLastUserText,
-  ToolPlan,
-  DEFAULT_FINAL_RESPONSE_INSTRUCTION
+  ToolPlan
 } from './tool-planner'
 
 type SupportedLanguage =
