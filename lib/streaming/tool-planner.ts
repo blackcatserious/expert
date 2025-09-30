@@ -25,6 +25,9 @@ const toolInvocationSchema = z.object({
     .describe('Parameters for the tool. Leave empty when not needed.')
 })
 
+export const DEFAULT_FINAL_RESPONSE_INSTRUCTION =
+  'Respond to the original user request using the collected information.'
+
 const planSchema = z.object({
   plan: z
     .array(
@@ -49,9 +52,7 @@ const planSchema = z.object({
     .describe('Concrete tool calls to execute.'),
   finalResponseInstruction: z
     .string()
-    .default(
-      'Respond to the original user request using the collected information.'
-    )
+    .default(DEFAULT_FINAL_RESPONSE_INSTRUCTION)
     .describe('Instruction for how the final answer should be framed. Use the user language.')
 })
 

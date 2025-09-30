@@ -8,7 +8,12 @@ import { search } from '../tools/search'
 import { videoSearchTool } from '../tools/video-search'
 import { ExtendedCoreMessage, SearchResults } from '../types'
 
-import { buildToolPlan, getLastUserText, ToolPlan } from './tool-planner'
+import {
+  buildToolPlan,
+  getLastUserText,
+  ToolPlan,
+  DEFAULT_FINAL_RESPONSE_INSTRUCTION
+} from './tool-planner'
 
 type SupportedLanguage =
   | 'en'
@@ -40,6 +45,7 @@ interface Localization {
   noSourcesInstruction: string
   useSourcesInstruction: (markers: string) => string
   fallbackSearchDescription: (query: string) => string
+  defaultFinalInstruction: string
   fallbackResponderInstruction: string
 }
 
@@ -64,6 +70,8 @@ const LOCALIZATIONS: Record<SupportedLanguage, Localization> = {
       `Use the numbered sources ${markers} from the research summary when citing evidence. Follow the [number](url) citation format.`,
     fallbackSearchDescription: (query: string) =>
       `Search the web for up-to-date information about "${query}"`,
+    defaultFinalInstruction:
+      'Please respond to the user using the collected information.',
     fallbackResponderInstruction: 'Please answer the user using the collected information.'
   },
   ru: {
@@ -86,6 +94,8 @@ const LOCALIZATIONS: Record<SupportedLanguage, Localization> = {
       `Используй пронумерованные источники ${markers} из сводки исследований для цитирования. Применяй формат [номер](url).`,
     fallbackSearchDescription: (query: string) =>
       `Найти в интернете актуальную информацию о "${query}"`,
+    defaultFinalInstruction:
+      'Пожалуйста, ответь пользователю, используя собранную информацию.',
     fallbackResponderInstruction: 'Пожалуйста, ответь пользователю, используя собранную информацию.'
   },
   es: {
@@ -108,6 +118,8 @@ const LOCALIZATIONS: Record<SupportedLanguage, Localization> = {
       `Usa las fuentes numeradas ${markers} del resumen de investigación al citar. Sigue el formato [número](url).`,
     fallbackSearchDescription: (query: string) =>
       `Buscar en la web información actualizada sobre "${query}"`,
+    defaultFinalInstruction:
+      'Responde al usuario utilizando la información recopilada.',
     fallbackResponderInstruction: 'Por favor, responde al usuario usando la información recopilada.'
   },
   ja: {
@@ -130,6 +142,8 @@ const LOCALIZATIONS: Record<SupportedLanguage, Localization> = {
       `引用する際はリサーチ要約の番号付きソース ${markers} を使い、[番号](url) 形式で記載してください。`,
     fallbackSearchDescription: (query: string) =>
       `「${query}」について最新情報を検索する`,
+    defaultFinalInstruction:
+      '収集した情報を使ってユーザーに回答してください。',
     fallbackResponderInstruction: '収集した情報を使ってユーザーに回答してください。'
   },
   ko: {
@@ -152,6 +166,8 @@ const LOCALIZATIONS: Record<SupportedLanguage, Localization> = {
       `인용할 때는 조사 요약의 번호가 매겨진 출처 ${markers}를 사용하고 [번호](url) 형식을 따르세요.`,
     fallbackSearchDescription: (query: string) =>
       `"${query}"에 대한 최신 정보를 검색합니다`,
+    defaultFinalInstruction:
+      '수집한 정보를 사용해 사용자에게 답변해 주세요.',
     fallbackResponderInstruction: '수집한 정보를 사용해 사용자에게 답변해 주세요.'
   },
   zh: {
@@ -174,6 +190,7 @@ const LOCALIZATIONS: Record<SupportedLanguage, Localization> = {
       `引用时请使用研究摘要中的编号来源 ${markers}，采用 [编号](url) 格式。`,
     fallbackSearchDescription: (query: string) =>
       `搜索“${query}”的最新信息`,
+    defaultFinalInstruction: '请使用收集到的信息回答用户。',
     fallbackResponderInstruction: '请使用收集到的信息回答用户。'
   },
   fr: {
@@ -196,6 +213,8 @@ const LOCALIZATIONS: Record<SupportedLanguage, Localization> = {
       `Utilisez les sources numérotées ${markers} du résumé de recherche pour citer vos preuves. Respectez le format [numéro](url).`,
     fallbackSearchDescription: (query: string) =>
       `Rechercher des informations à jour sur « ${query} »`,
+    defaultFinalInstruction:
+      'Veuillez répondre à l’utilisateur en vous appuyant sur les informations recueillies.',
     fallbackResponderInstruction: 'Répondez à l’utilisateur en vous appuyant sur les informations recueillies.'
   },
   de: {
@@ -218,6 +237,8 @@ const LOCALIZATIONS: Record<SupportedLanguage, Localization> = {
       `Verwende beim Zitieren die nummerierten Quellen ${markers} aus der Recherche-Zusammenfassung. Nutze das Format [Nummer](URL).`,
     fallbackSearchDescription: (query: string) =>
       `Im Web nach aktuellen Informationen zu „${query}“ suchen`,
+    defaultFinalInstruction:
+      'Bitte beantworte die Nutzerfrage mit den gesammelten Informationen.',
     fallbackResponderInstruction:
       'Bitte beantworte die Frage des Nutzers mit den gesammelten Informationen.'
   },
@@ -241,6 +262,8 @@ const LOCALIZATIONS: Record<SupportedLanguage, Localization> = {
       `Usa le fonti numerate ${markers} presenti nella sintesi della ricerca quando citi le prove. Segui il formato [numero](url).`,
     fallbackSearchDescription: (query: string) =>
       `Cerca sul web informazioni aggiornate su "${query}"`,
+    defaultFinalInstruction:
+      'Rispondi all’utente utilizzando le informazioni raccolte.',
     fallbackResponderInstruction:
       "Rispondi all'utente utilizzando le informazioni raccolte."
   },
@@ -264,6 +287,8 @@ const LOCALIZATIONS: Record<SupportedLanguage, Localization> = {
       `Use as fontes numeradas ${markers} do resumo de pesquisa ao citar evidências. Siga o formato [número](url).`,
     fallbackSearchDescription: (query: string) =>
       `Pesquisar na web por informações atualizadas sobre "${query}"`,
+    defaultFinalInstruction:
+      'Responda ao usuário usando as informações coletadas.',
     fallbackResponderInstruction:
       'Responda ao usuário utilizando as informações coletadas.'
   },
@@ -287,6 +312,8 @@ const LOCALIZATIONS: Record<SupportedLanguage, Localization> = {
       `استخدم المصادر المرقمة ${markers} من ملخص البحث عند الاستشهاد بالأدلة. اتبع تنسيق [الرقم](الرابط).`,
     fallbackSearchDescription: (query: string) =>
       `ابحث على الويب عن أحدث المعلومات حول "${query}"`,
+    defaultFinalInstruction:
+      'يرجى الرد على المستخدم باستخدام المعلومات التي جُمعت.',
     fallbackResponderInstruction:
       'يرجى الرد على المستخدم باستخدام المعلومات التي تم جمعها.'
   }
@@ -554,6 +581,7 @@ async function executePlannedTools({
   }
 
   const summary = buildExecutionSummary(executedSteps, localization)
+  const finalInstruction = getPlanFinalInstruction(plan, localization)
 
   const toolCallDataAnnotation: ExtendedCoreMessage = {
     role: 'data',
@@ -566,6 +594,8 @@ async function executePlannedTools({
         result: stringifyResultWithSources(
           {
             plan: plan.plan,
+            toolInvocations: plan.toolInvocations,
+            finalResponseInstruction: finalInstruction,
             steps: executedSteps
           },
           summary.sources
@@ -578,7 +608,8 @@ async function executePlannedTools({
     plan,
     executedSteps,
     summary,
-    localization
+    localization,
+    finalInstruction
   })
 
   return { toolCallDataAnnotation, toolCallMessages }
@@ -865,12 +896,14 @@ function createToolResponderMessages({
   plan,
   executedSteps,
   summary,
-  localization
+  localization,
+  finalInstruction
 }: {
   plan: ToolPlan
   executedSteps: ExecutedStep[]
   summary: ExecutionSummary
   localization: Localization
+  finalInstruction: string
 }): CoreMessage[] {
   const messages: CoreMessage[] = []
 
@@ -887,13 +920,26 @@ function createToolResponderMessages({
   messages.push({
     role: 'user',
     content: buildFinalResponderInstruction(
-      plan.finalResponseInstruction,
+      finalInstruction,
       summary.sources,
       localization
     )
   })
 
   return messages
+}
+
+function getPlanFinalInstruction(
+  plan: ToolPlan,
+  localization: Localization
+): string {
+  const trimmed = plan.finalResponseInstruction?.trim()
+
+  if (!trimmed || trimmed === DEFAULT_FINAL_RESPONSE_INSTRUCTION) {
+    return localization.defaultFinalInstruction
+  }
+
+  return trimmed
 }
 
 function buildPlanAndExecutionOverview(
@@ -1056,7 +1102,8 @@ async function fallbackSearch({
           result: stringifyResultWithSources(
             {
               result,
-              steps: executedSteps
+              steps: executedSteps,
+              finalResponseInstruction: localization.fallbackResponderInstruction
             },
             summary.sources
           )
