@@ -82,7 +82,7 @@ Always match the language of the user in descriptions and instructions.
     schema: planSchema
   })
 
-  return plannerResult.object
+  return normalizeToolPlan(plannerResult.object)
 }
 
 export function getLastUserText(messages: CoreMessage[]): string {
@@ -105,4 +105,69 @@ export function getLastUserText(messages: CoreMessage[]): string {
   }
 
   return ''
+}
+
+export function normalizeToolPlan(plan: ToolPlan): ToolPlan {
+  const normalizedPlan = (plan.plan ?? [])
+    .map(step => ({
+      step: step.step.trim(),
+      detail: step.detail.trim()
+    }))
+    .filter(step => step.step.length > 0 && step.detail.length > 0)
+
+  const seenIds = new Map<string, number>()
+  const normalizedInvocations = (plan.toolInvocations ?? [])
+    .map((invocation, index) => {
+      const id = normalizeInvocationId(invocation.id, index + 1, seenIds)
+      return {
+        ...invocation,
+        id,
+        description: invocation.description.trim(),
+        parameters: normalizeInvocationParameters(invocation.parameters)
+      }
+    })
+    .filter(invocation => invocation.description.length > 0 || invocation.tool === 'none')
+
+  const finalResponseInstruction = plan.finalResponseInstruction?.trim() ?? ''
+
+  return {
+    plan: normalizedPlan,
+    toolInvocations: normalizedInvocations,
+    finalResponseInstruction:
+      finalResponseInstruction.length > 0
+        ? finalResponseInstruction
+        : DEFAULT_FINAL_RESPONSE_INSTRUCTION
+  }
+}
+
+function normalizeInvocationId(
+  rawId: string,
+  index: number,
+  seenIds: Map<string, number>
+): string {
+  const trimmed = rawId.trim()
+  const fallbackId = `step-${index}`
+  const baseId = trimmed.length > 0 ? trimmed.replace(/\s+/g, '-') : fallbackId
+  const occurrence = seenIds.get(baseId) ?? 0
+  seenIds.set(baseId, occurrence + 1)
+
+  if (occurrence === 0) {
+    return baseId
+  }
+
+  return `${baseId}-${occurrence + 1}`
+}
+
+function normalizeInvocationParameters(parameters: unknown): Record<string, unknown> {
+  if (!isPlainRecord(parameters)) {
+    return {}
+  }
+
+  return Object.fromEntries(
+    Object.entries(parameters).filter(([, value]) => value !== undefined && value !== null)
+  )
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
