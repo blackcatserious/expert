@@ -10,6 +10,195 @@ import { ExtendedCoreMessage, SearchResults } from '../types'
 
 import { buildToolPlan, getLastUserText, ToolPlan } from './tool-planner'
 
+type SupportedLanguage = 'en' | 'ru' | 'es' | 'ja' | 'ko' | 'zh'
+
+interface Localization {
+  researchSummaryHeading: string
+  sourcesDirectoryHeading: string
+  noResultsFound: string
+  unableToRetrieve: string
+  noVideosFound: string
+  plannedApproachHeading: string
+  noPlanProvided: string
+  executedRunsHeading: string
+  noToolsExecuted: string
+  completedSuccessfully: string
+  failedWithError: (error: string) => string
+  descriptionLabel: string
+  statusLabel: string
+  noSourcesInstruction: string
+  useSourcesInstruction: (markers: string) => string
+  fallbackSearchDescription: (query: string) => string
+  fallbackResponderInstruction: string
+}
+
+const LOCALIZATIONS: Record<SupportedLanguage, Localization> = {
+  en: {
+    researchSummaryHeading: 'External research summary',
+    sourcesDirectoryHeading: 'Source directory',
+    noResultsFound: 'No results found.',
+    unableToRetrieve: 'Unable to retrieve content.',
+    noVideosFound: 'No relevant videos found.',
+    plannedApproachHeading: 'Planned approach',
+    noPlanProvided: 'No explicit high-level plan provided by the planner.',
+    executedRunsHeading: 'Executed tool runs',
+    noToolsExecuted: 'No tools were executed.',
+    completedSuccessfully: 'Completed successfully',
+    failedWithError: (error: string) => `Failed: ${error}`,
+    descriptionLabel: 'Description',
+    statusLabel: 'Status',
+    noSourcesInstruction:
+      'No external sources were gathered. Answer using your existing knowledge and note the limitation.',
+    useSourcesInstruction: (markers: string) =>
+      `Use the numbered sources ${markers} from the research summary when citing evidence. Follow the [number](url) citation format.`,
+    fallbackSearchDescription: (query: string) =>
+      `Search the web for up-to-date information about "${query}"`,
+    fallbackResponderInstruction: 'Please answer the user using the collected information.'
+  },
+  ru: {
+    researchSummaryHeading: 'Сводка внешних исследований',
+    sourcesDirectoryHeading: 'Каталог источников',
+    noResultsFound: 'Результатов не найдено.',
+    unableToRetrieve: 'Не удалось получить содержимое.',
+    noVideosFound: 'Подходящих видео не найдено.',
+    plannedApproachHeading: 'План действий',
+    noPlanProvided: 'Планировщик не предложил подробного плана.',
+    executedRunsHeading: 'Выполненные вызовы инструментов',
+    noToolsExecuted: 'Инструменты не запускались.',
+    completedSuccessfully: 'Выполнено успешно',
+    failedWithError: (error: string) => `Сбой: ${error}`,
+    descriptionLabel: 'Описание',
+    statusLabel: 'Статус',
+    noSourcesInstruction:
+      'Внешние источники не найдены. Ответь, используя собственные знания, и упомяни это ограничение.',
+    useSourcesInstruction: (markers: string) =>
+      `Используй пронумерованные источники ${markers} из сводки исследований для цитирования. Применяй формат [номер](url).`,
+    fallbackSearchDescription: (query: string) =>
+      `Найти в интернете актуальную информацию о "${query}"`,
+    fallbackResponderInstruction: 'Пожалуйста, ответь пользователю, используя собранную информацию.'
+  },
+  es: {
+    researchSummaryHeading: 'Resumen de investigación externa',
+    sourcesDirectoryHeading: 'Directorio de fuentes',
+    noResultsFound: 'No se encontraron resultados.',
+    unableToRetrieve: 'No se pudo obtener el contenido.',
+    noVideosFound: 'No se encontraron videos relevantes.',
+    plannedApproachHeading: 'Plan',
+    noPlanProvided: 'El planificador no proporcionó un plan detallado.',
+    executedRunsHeading: 'Herramientas ejecutadas',
+    noToolsExecuted: 'No se ejecutaron herramientas.',
+    completedSuccessfully: 'Completado correctamente',
+    failedWithError: (error: string) => `Fallo: ${error}`,
+    descriptionLabel: 'Descripción',
+    statusLabel: 'Estado',
+    noSourcesInstruction:
+      'No se recopilaron fuentes externas. Responde con tu conocimiento e indica esta limitación.',
+    useSourcesInstruction: (markers: string) =>
+      `Usa las fuentes numeradas ${markers} del resumen de investigación al citar. Sigue el formato [número](url).`,
+    fallbackSearchDescription: (query: string) =>
+      `Buscar en la web información actualizada sobre "${query}"`,
+    fallbackResponderInstruction: 'Por favor, responde al usuario usando la información recopilada.'
+  },
+  ja: {
+    researchSummaryHeading: '外部リサーチの要約',
+    sourcesDirectoryHeading: '参照元一覧',
+    noResultsFound: '結果が見つかりませんでした。',
+    unableToRetrieve: 'コンテンツを取得できませんでした。',
+    noVideosFound: '関連する動画が見つかりませんでした。',
+    plannedApproachHeading: '計画',
+    noPlanProvided: 'プランナーから明示的な計画は提供されませんでした。',
+    executedRunsHeading: '実行したツール',
+    noToolsExecuted: 'ツールは実行されませんでした。',
+    completedSuccessfully: '正常に完了',
+    failedWithError: (error: string) => `失敗: ${error}`,
+    descriptionLabel: '内容',
+    statusLabel: 'ステータス',
+    noSourcesInstruction:
+      '外部ソースはありません。既存の知識を使って回答し、その制限に触れてください。',
+    useSourcesInstruction: (markers: string) =>
+      `引用する際はリサーチ要約の番号付きソース ${markers} を使い、[番号](url) 形式で記載してください。`,
+    fallbackSearchDescription: (query: string) =>
+      `「${query}」について最新情報を検索する`,
+    fallbackResponderInstruction: '収集した情報を使ってユーザーに回答してください。'
+  },
+  ko: {
+    researchSummaryHeading: '외부 조사 요약',
+    sourcesDirectoryHeading: '출처 목록',
+    noResultsFound: '결과가 없습니다.',
+    unableToRetrieve: '콘텐츠를 가져오지 못했습니다.',
+    noVideosFound: '관련 동영상을 찾지 못했습니다.',
+    plannedApproachHeading: '계획',
+    noPlanProvided: '플래너가 구체적인 계획을 제공하지 않았습니다.',
+    executedRunsHeading: '실행한 도구',
+    noToolsExecuted: '실행한 도구가 없습니다.',
+    completedSuccessfully: '성공적으로 완료',
+    failedWithError: (error: string) => `실패: ${error}`,
+    descriptionLabel: '설명',
+    statusLabel: '상태',
+    noSourcesInstruction:
+      '외부 출처가 없습니다. 기존 지식을 사용해 답변하고 이 제한을 언급하세요.',
+    useSourcesInstruction: (markers: string) =>
+      `인용할 때는 조사 요약의 번호가 매겨진 출처 ${markers}를 사용하고 [번호](url) 형식을 따르세요.`,
+    fallbackSearchDescription: (query: string) =>
+      `"${query}"에 대한 최신 정보를 검색합니다`,
+    fallbackResponderInstruction: '수집한 정보를 사용해 사용자에게 답변해 주세요.'
+  },
+  zh: {
+    researchSummaryHeading: '外部研究摘要',
+    sourcesDirectoryHeading: '来源目录',
+    noResultsFound: '未找到结果。',
+    unableToRetrieve: '无法获取内容。',
+    noVideosFound: '未找到相关视频。',
+    plannedApproachHeading: '计划',
+    noPlanProvided: '规划器未提供明确的计划。',
+    executedRunsHeading: '已执行的工具',
+    noToolsExecuted: '未执行任何工具。',
+    completedSuccessfully: '成功完成',
+    failedWithError: (error: string) => `失败：${error}`,
+    descriptionLabel: '说明',
+    statusLabel: '状态',
+    noSourcesInstruction:
+      '没有收集到外部来源。请根据现有知识回答，并说明这一限制。',
+    useSourcesInstruction: (markers: string) =>
+      `引用时请使用研究摘要中的编号来源 ${markers}，采用 [编号](url) 格式。`,
+    fallbackSearchDescription: (query: string) =>
+      `搜索“${query}”的最新信息`,
+    fallbackResponderInstruction: '请使用收集到的信息回答用户。'
+  }
+}
+
+function detectLanguageFromText(text: string): SupportedLanguage {
+  if (!text) {
+    return 'en'
+  }
+
+  if (/[\u0400-\u04FF]/.test(text)) {
+    return 'ru'
+  }
+
+  if (/[\u4E00-\u9FFF]/.test(text)) {
+    return 'zh'
+  }
+
+  if (/[\u3040-\u30FF]/.test(text)) {
+    return 'ja'
+  }
+
+  if (/[\uAC00-\uD7A3]/.test(text)) {
+    return 'ko'
+  }
+
+  if (/(?:\b(?:el|la|los|las|un|una|de|que|para|con|por|del|al|y|en|se)\b)/i.test(text)) {
+    return 'es'
+  }
+
+  return 'en'
+}
+
+function getLocalization(language: SupportedLanguage): Localization {
+  return LOCALIZATIONS[language] ?? LOCALIZATIONS.en
+}
+
 interface ToolExecutionResult {
   toolCallDataAnnotation: ExtendedCoreMessage | null
   toolCallMessages: CoreMessage[]
@@ -26,6 +215,9 @@ export async function executeToolCall(
     return { toolCallDataAnnotation: null, toolCallMessages: [] }
   }
 
+  const lastUserText = getLastUserText(coreMessages)
+  const language = detectLanguageFromText(lastUserText)
+
   try {
     const toolPlan = await buildToolPlan({
       messages: coreMessages,
@@ -34,7 +226,8 @@ export async function executeToolCall(
 
     const execution = await executePlannedTools({
       plan: toolPlan,
-      dataStream
+      dataStream,
+      language
     })
 
     if (execution) {
@@ -44,7 +237,7 @@ export async function executeToolCall(
     console.error('Failed to execute planned tools:', error)
   }
 
-  return fallbackSearch({ coreMessages, dataStream, model })
+  return fallbackSearch({ coreMessages, dataStream, model, language })
 }
 
 type ToolName = 'search' | 'retrieve' | 'videoSearch'
@@ -52,6 +245,7 @@ type ToolName = 'search' | 'retrieve' | 'videoSearch'
 interface ExecutePlannedToolsConfig {
   plan: ToolPlan
   dataStream: DataStreamWriter
+  language: SupportedLanguage
 }
 
 interface ExecutedStep {
@@ -96,8 +290,10 @@ type ParsedToolParameters =
 
 async function executePlannedTools({
   plan,
-  dataStream
+  dataStream,
+  language
 }: ExecutePlannedToolsConfig): Promise<ToolExecutionResult | null> {
+  const localization = getLocalization(language)
   const invocations = plan.toolInvocations
     .filter(invocation =>
       ['search', 'retrieve', 'videoSearch'].includes(invocation.tool)
@@ -184,7 +380,7 @@ async function executePlannedTools({
     return null
   }
 
-  const summary = buildExecutionSummary(executedSteps)
+  const summary = buildExecutionSummary(executedSteps, localization)
 
   const toolCallDataAnnotation: ExtendedCoreMessage = {
     role: 'data',
@@ -208,7 +404,8 @@ async function executePlannedTools({
   const toolCallMessages = createToolResponderMessages({
     plan,
     executedSteps,
-    summary
+    summary,
+    localization
   })
 
   return { toolCallDataAnnotation, toolCallMessages }
@@ -289,37 +486,52 @@ async function runTool(parsed: ParsedToolParameters) {
   }
 }
 
-function buildExecutionSummary(steps: ExecutedStep[]): ExecutionSummary {
+function buildExecutionSummary(
+  steps: ExecutedStep[],
+  localization: Localization
+): ExecutionSummary {
   let nextMarkerIndex = 1
   const sources: SourceReference[] = []
 
   const parts = steps.map(step => {
     if (step.error) {
-      return `• ${step.description}\n  ⚠️ ${step.error}`
+      return `• ${step.description}\n  ⚠️ ${localization.failedWithError(step.error)}`
     }
 
     switch (step.tool) {
       case 'search': {
-        const { text, nextIndex } = formatSearchSummary(step, {
-          startIndex: nextMarkerIndex,
-          sources
-        })
+        const { text, nextIndex } = formatSearchSummary(
+          step,
+          {
+            startIndex: nextMarkerIndex,
+            sources
+          },
+          localization
+        )
         nextMarkerIndex = nextIndex
         return text
       }
       case 'retrieve': {
-        const { text, nextIndex } = formatRetrieveSummary(step, {
-          startIndex: nextMarkerIndex,
-          sources
-        })
+        const { text, nextIndex } = formatRetrieveSummary(
+          step,
+          {
+            startIndex: nextMarkerIndex,
+            sources
+          },
+          localization
+        )
         nextMarkerIndex = nextIndex
         return text
       }
       case 'videoSearch': {
-        const { text, nextIndex } = formatVideoSummary(step, {
-          startIndex: nextMarkerIndex,
-          sources
-        })
+        const { text, nextIndex } = formatVideoSummary(
+          step,
+          {
+            startIndex: nextMarkerIndex,
+            sources
+          },
+          localization
+        )
         nextMarkerIndex = nextIndex
         return text
       }
@@ -329,10 +541,10 @@ function buildExecutionSummary(steps: ExecutedStep[]): ExecutionSummary {
   })
 
   const filtered = parts.filter(Boolean).map(part => part.trim())
-  const sourcesDirectory = formatSourcesDirectory(sources)
+  const sourcesDirectory = formatSourcesDirectory(sources, localization)
 
   const summary =
-    'External research summary:\n\n' +
+    `${localization.researchSummaryHeading}:\n\n` +
     filtered.join('\n\n') +
     (sourcesDirectory ? `\n\n${sourcesDirectory}` : '')
 
@@ -344,12 +556,16 @@ function buildExecutionSummary(steps: ExecutedStep[]): ExecutionSummary {
 
 function formatSearchSummary(
   step: ExecutedStep,
-  context: { startIndex: number; sources: SourceReference[] }
+  context: { startIndex: number; sources: SourceReference[] },
+  localization: Localization
 ): { text: string; nextIndex: number } {
   const result = step.result as SearchResults | null
 
   if (!result || !Array.isArray(result.results) || result.results.length === 0) {
-    return { text: `• ${step.description}\n  – No results found.`, nextIndex: context.startIndex }
+    return {
+      text: `• ${step.description}\n  – ${localization.noResultsFound}`,
+      nextIndex: context.startIndex
+    }
   }
 
   const topResults = result.results.slice(0, 3)
@@ -377,12 +593,13 @@ function formatSearchSummary(
 
 function formatRetrieveSummary(
   step: ExecutedStep,
-  context: { startIndex: number; sources: SourceReference[] }
+  context: { startIndex: number; sources: SourceReference[] },
+  localization: Localization
 ): { text: string; nextIndex: number } {
   const result = step.result as SearchResults | null
   if (!result || !Array.isArray(result.results) || result.results.length === 0) {
     return {
-      text: `• ${step.description}\n  – Unable to retrieve content.`,
+      text: `• ${step.description}\n  – ${localization.unableToRetrieve}`,
       nextIndex: context.startIndex
     }
   }
@@ -408,7 +625,8 @@ function formatRetrieveSummary(
 
 function formatVideoSummary(
   step: ExecutedStep,
-  context: { startIndex: number; sources: SourceReference[] }
+  context: { startIndex: number; sources: SourceReference[] },
+  localization: Localization
 ): { text: string; nextIndex: number } {
   const result = step.result as
     | { videos?: Array<{ title: string; link: string; snippet?: string }> }
@@ -418,7 +636,7 @@ function formatVideoSummary(
 
   if (!videos || videos.length === 0) {
     return {
-      text: `• ${step.description}\n  – No relevant videos found.`,
+      text: `• ${step.description}\n  – ${localization.noVideosFound}`,
       nextIndex: context.startIndex
     }
   }
@@ -450,7 +668,10 @@ function formatVideoSummary(
   }
 }
 
-function formatSourcesDirectory(sources: SourceReference[]): string {
+function formatSourcesDirectory(
+  sources: SourceReference[],
+  localization: Localization
+): string {
   if (sources.length === 0) {
     return ''
   }
@@ -460,7 +681,7 @@ function formatSourcesDirectory(sources: SourceReference[]): string {
     return `${source.marker} ${titlePart}${source.url}`
   })
 
-  return 'Source directory:\n' + lines.join('\n')
+  return `${localization.sourcesDirectoryHeading}:\n` + lines.join('\n')
 }
 
 function createMarker(index: number): string {
@@ -470,17 +691,19 @@ function createMarker(index: number): string {
 function createToolResponderMessages({
   plan,
   executedSteps,
-  summary
+  summary,
+  localization
 }: {
   plan: ToolPlan
   executedSteps: ExecutedStep[]
   summary: ExecutionSummary
+  localization: Localization
 }): CoreMessage[] {
   const messages: CoreMessage[] = []
 
   messages.push({
     role: 'assistant',
-    content: buildPlanAndExecutionOverview(plan, executedSteps)
+    content: buildPlanAndExecutionOverview(plan, executedSteps, localization)
   })
 
   messages.push({
@@ -492,7 +715,8 @@ function createToolResponderMessages({
     role: 'user',
     content: buildFinalResponderInstruction(
       plan.finalResponseInstruction,
-      summary.sources
+      summary.sources,
+      localization
     )
   })
 
@@ -501,38 +725,42 @@ function createToolResponderMessages({
 
 function buildPlanAndExecutionOverview(
   plan: ToolPlan,
-  executedSteps: ExecutedStep[]
+  executedSteps: ExecutedStep[],
+  localization: Localization
 ): string {
   const planLines = plan.plan.map((step, index) => {
     return `${index + 1}. ${step.step}\n   ${step.detail}`
   })
 
   const invocationLines = executedSteps.map(step => {
-    const status = step.error ? `Failed: ${step.error}` : 'Completed successfully'
-    return `- ${step.id} (${step.tool})\n  Description: ${step.description}\n  Status: ${status}`
+    const status = step.error
+      ? localization.failedWithError(step.error)
+      : localization.completedSuccessfully
+    return `- ${step.id} (${step.tool})\n  ${localization.descriptionLabel}: ${step.description}\n  ${localization.statusLabel}: ${status}`
   })
 
   const plannedSection =
     planLines.length > 0
-      ? ['Planned approach:', ...planLines].join('\n')
-      : 'Planned approach:\nNo explicit high-level plan provided by the planner.'
+      ? [`${localization.plannedApproachHeading}:`, ...planLines].join('\n')
+      : `${localization.plannedApproachHeading}:\n${localization.noPlanProvided}`
 
   const executedSection =
     invocationLines.length > 0
-      ? ['Executed tool runs:', ...invocationLines].join('\n')
-      : 'Executed tool runs:\nNo tools were executed.'
+      ? [`${localization.executedRunsHeading}:`, ...invocationLines].join('\n')
+      : `${localization.executedRunsHeading}:\n${localization.noToolsExecuted}`
 
   return `${plannedSection}\n\n${executedSection}`
 }
 
 function buildFinalResponderInstruction(
   baseInstruction: string,
-  sources: SourceReference[]
+  sources: SourceReference[],
+  localization: Localization
 ): string {
   if (sources.length === 0) {
     return (
       baseInstruction +
-      '\n\nNo external sources were gathered. Answer using your existing knowledge and note the limitation.'
+      `\n\n${localization.noSourcesInstruction}`
     )
   }
 
@@ -540,18 +768,22 @@ function buildFinalResponderInstruction(
 
   return (
     baseInstruction +
-    '\n\nUse the numbered sources ' +
-    markers +
-    ' from the research summary when citing evidence. Follow the [number](url) citation format.'
+    `\n\n${localization.useSourcesInstruction(markers)}`
   )
 }
 
-function buildFallbackOverview(executedSteps: ExecutedStep[]): string {
+function buildFallbackOverview(
+  executedSteps: ExecutedStep[],
+  localization: Localization
+): string {
   const details = executedSteps.map(step => {
-    return `- ${step.description}\n  Status: ${step.error ? `Failed: ${step.error}` : 'Completed successfully'}`
+    const status = step.error
+      ? localization.failedWithError(step.error)
+      : localization.completedSuccessfully
+    return `- ${step.description}\n  ${localization.statusLabel}: ${status}`
   })
 
-  return `Executed tool runs:\n${details.join('\n')}`
+  return `${localization.executedRunsHeading}:\n${details.join('\n')}`
 }
 
 function stringifyResultWithSources(
@@ -568,11 +800,13 @@ function stringifyResultWithSources(
 async function fallbackSearch({
   coreMessages,
   dataStream,
-  model
+  model,
+  language
 }: {
   coreMessages: CoreMessage[]
   dataStream: DataStreamWriter
   model: string
+  language: SupportedLanguage
 }): Promise<ToolExecutionResult> {
   const query = getLastUserText(coreMessages)
 
@@ -580,6 +814,7 @@ async function fallbackSearch({
     return { toolCallDataAnnotation: null, toolCallMessages: [] }
   }
 
+  const localization = getLocalization(language)
   const toolCallId = `call_${generateId()}`
 
   const callAnnotation = {
@@ -611,18 +846,18 @@ async function fallbackSearch({
     {
       id: 'fallback-search',
       tool: 'search',
-      description: `Search the web for up-to-date information about "${query}"`,
+      description: localization.fallbackSearchDescription(query),
       parameters: { query },
       result
     }
   ]
 
-  const summary = buildExecutionSummary(executedSteps)
+  const summary = buildExecutionSummary(executedSteps, localization)
 
   const toolCallMessages: CoreMessage[] = [
     {
       role: 'assistant',
-      content: buildFallbackOverview(executedSteps)
+      content: buildFallbackOverview(executedSteps, localization)
     },
     {
       role: 'assistant',
@@ -631,8 +866,9 @@ async function fallbackSearch({
     {
       role: 'user',
       content: buildFinalResponderInstruction(
-        'Please answer the user using the collected information.',
-        summary.sources
+        localization.fallbackResponderInstruction,
+        summary.sources,
+        localization
       )
     }
   ]
