@@ -10,7 +10,18 @@ import { ExtendedCoreMessage, SearchResults } from '../types'
 
 import { buildToolPlan, getLastUserText, ToolPlan } from './tool-planner'
 
-type SupportedLanguage = 'en' | 'ru' | 'es' | 'ja' | 'ko' | 'zh'
+type SupportedLanguage =
+  | 'en'
+  | 'ru'
+  | 'es'
+  | 'ja'
+  | 'ko'
+  | 'zh'
+  | 'fr'
+  | 'de'
+  | 'it'
+  | 'pt'
+  | 'ar'
 
 interface Localization {
   researchSummaryHeading: string
@@ -164,6 +175,120 @@ const LOCALIZATIONS: Record<SupportedLanguage, Localization> = {
     fallbackSearchDescription: (query: string) =>
       `搜索“${query}”的最新信息`,
     fallbackResponderInstruction: '请使用收集到的信息回答用户。'
+  },
+  fr: {
+    researchSummaryHeading: 'Résumé de recherche externe',
+    sourcesDirectoryHeading: 'Répertoire des sources',
+    noResultsFound: 'Aucun résultat trouvé.',
+    unableToRetrieve: 'Impossible de récupérer le contenu.',
+    noVideosFound: 'Aucune vidéo pertinente trouvée.',
+    plannedApproachHeading: 'Approche planifiée',
+    noPlanProvided: 'Le planificateur n’a pas fourni de plan détaillé.',
+    executedRunsHeading: 'Outils exécutés',
+    noToolsExecuted: 'Aucun outil n’a été exécuté.',
+    completedSuccessfully: 'Terminé avec succès',
+    failedWithError: (error: string) => `Échec : ${error}`,
+    descriptionLabel: 'Description',
+    statusLabel: 'Statut',
+    noSourcesInstruction:
+      'Aucune source externe n’a été collectée. Répondez avec vos connaissances et mentionnez cette limite.',
+    useSourcesInstruction: (markers: string) =>
+      `Utilisez les sources numérotées ${markers} du résumé de recherche pour citer vos preuves. Respectez le format [numéro](url).`,
+    fallbackSearchDescription: (query: string) =>
+      `Rechercher des informations à jour sur « ${query} »`,
+    fallbackResponderInstruction: 'Répondez à l’utilisateur en vous appuyant sur les informations recueillies.'
+  },
+  de: {
+    researchSummaryHeading: 'Zusammenfassung externer Recherche',
+    sourcesDirectoryHeading: 'Quellenverzeichnis',
+    noResultsFound: 'Keine Ergebnisse gefunden.',
+    unableToRetrieve: 'Inhalt konnte nicht abgerufen werden.',
+    noVideosFound: 'Keine passenden Videos gefunden.',
+    plannedApproachHeading: 'Geplanter Ansatz',
+    noPlanProvided: 'Der Planer hat keinen detaillierten Plan bereitgestellt.',
+    executedRunsHeading: 'Ausgeführte Tools',
+    noToolsExecuted: 'Es wurden keine Tools ausgeführt.',
+    completedSuccessfully: 'Erfolgreich abgeschlossen',
+    failedWithError: (error: string) => `Fehlgeschlagen: ${error}`,
+    descriptionLabel: 'Beschreibung',
+    statusLabel: 'Status',
+    noSourcesInstruction:
+      'Es wurden keine externen Quellen gesammelt. Antworte mit deinem vorhandenen Wissen und erwähne diese Einschränkung.',
+    useSourcesInstruction: (markers: string) =>
+      `Verwende beim Zitieren die nummerierten Quellen ${markers} aus der Recherche-Zusammenfassung. Nutze das Format [Nummer](URL).`,
+    fallbackSearchDescription: (query: string) =>
+      `Im Web nach aktuellen Informationen zu „${query}“ suchen`,
+    fallbackResponderInstruction:
+      'Bitte beantworte die Frage des Nutzers mit den gesammelten Informationen.'
+  },
+  it: {
+    researchSummaryHeading: 'Sintesi della ricerca esterna',
+    sourcesDirectoryHeading: 'Elenco delle fonti',
+    noResultsFound: 'Nessun risultato trovato.',
+    unableToRetrieve: 'Impossibile recuperare il contenuto.',
+    noVideosFound: 'Nessun video pertinente trovato.',
+    plannedApproachHeading: 'Approccio pianificato',
+    noPlanProvided: 'Il pianificatore non ha fornito un piano dettagliato.',
+    executedRunsHeading: 'Strumenti eseguiti',
+    noToolsExecuted: 'Nessuno strumento è stato eseguito.',
+    completedSuccessfully: 'Completato con successo',
+    failedWithError: (error: string) => `Non riuscito: ${error}`,
+    descriptionLabel: 'Descrizione',
+    statusLabel: 'Stato',
+    noSourcesInstruction:
+      'Non sono state raccolte fonti esterne. Rispondi con le tue conoscenze e segnala questa limitazione.',
+    useSourcesInstruction: (markers: string) =>
+      `Usa le fonti numerate ${markers} presenti nella sintesi della ricerca quando citi le prove. Segui il formato [numero](url).`,
+    fallbackSearchDescription: (query: string) =>
+      `Cerca sul web informazioni aggiornate su "${query}"`,
+    fallbackResponderInstruction:
+      "Rispondi all'utente utilizzando le informazioni raccolte."
+  },
+  pt: {
+    researchSummaryHeading: 'Resumo de pesquisa externa',
+    sourcesDirectoryHeading: 'Diretório de fontes',
+    noResultsFound: 'Nenhum resultado encontrado.',
+    unableToRetrieve: 'Não foi possível obter o conteúdo.',
+    noVideosFound: 'Nenhum vídeo relevante encontrado.',
+    plannedApproachHeading: 'Abordagem planejada',
+    noPlanProvided: 'O planejador não forneceu um plano detalhado.',
+    executedRunsHeading: 'Ferramentas executadas',
+    noToolsExecuted: 'Nenhuma ferramenta foi executada.',
+    completedSuccessfully: 'Concluído com sucesso',
+    failedWithError: (error: string) => `Falhou: ${error}`,
+    descriptionLabel: 'Descrição',
+    statusLabel: 'Status',
+    noSourcesInstruction:
+      'Nenhuma fonte externa foi coletada. Responda usando seu conhecimento e mencione essa limitação.',
+    useSourcesInstruction: (markers: string) =>
+      `Use as fontes numeradas ${markers} do resumo de pesquisa ao citar evidências. Siga o formato [número](url).`,
+    fallbackSearchDescription: (query: string) =>
+      `Pesquisar na web por informações atualizadas sobre "${query}"`,
+    fallbackResponderInstruction:
+      'Responda ao usuário utilizando as informações coletadas.'
+  },
+  ar: {
+    researchSummaryHeading: 'ملخص البحث الخارجي',
+    sourcesDirectoryHeading: 'دليل المصادر',
+    noResultsFound: 'لم يتم العثور على نتائج.',
+    unableToRetrieve: 'تعذّر جلب المحتوى.',
+    noVideosFound: 'لم يتم العثور على مقاطع فيديو ذات صلة.',
+    plannedApproachHeading: 'النهج المخطط',
+    noPlanProvided: 'لم يقدّم المخطِّط خطة تفصيلية.',
+    executedRunsHeading: 'الأدوات التي تم تنفيذها',
+    noToolsExecuted: 'لم يتم تنفيذ أي أدوات.',
+    completedSuccessfully: 'اكتملت بنجاح',
+    failedWithError: (error: string) => `فشل: ${error}`,
+    descriptionLabel: 'الوصف',
+    statusLabel: 'الحالة',
+    noSourcesInstruction:
+      'لم يتم جمع أي مصادر خارجية. أجب باستخدام معرفتك الحالية واذكر هذا القيد.',
+    useSourcesInstruction: (markers: string) =>
+      `استخدم المصادر المرقمة ${markers} من ملخص البحث عند الاستشهاد بالأدلة. اتبع تنسيق [الرقم](الرابط).`,
+    fallbackSearchDescription: (query: string) =>
+      `ابحث على الويب عن أحدث المعلومات حول "${query}"`,
+    fallbackResponderInstruction:
+      'يرجى الرد على المستخدم باستخدام المعلومات التي تم جمعها.'
   }
 }
 
@@ -188,7 +313,55 @@ function detectLanguageFromText(text: string): SupportedLanguage {
     return 'ko'
   }
 
-  if (/(?:\b(?:el|la|los|las|un|una|de|que|para|con|por|del|al|y|en|se)\b)/i.test(text)) {
+  if (/[\u0600-\u06FF]/.test(text)) {
+    return 'ar'
+  }
+
+  const asciiOnly = /^[\u0000-\u007F]*$/.test(text)
+
+  if (!asciiOnly) {
+    if (/[ãõ]/i.test(text) || /ção/i.test(text) || /ções/i.test(text)) {
+      return 'pt'
+    }
+
+    if (/[œæ]/i.test(text) || /[àâçéèêëîïôûùüÿ]/i.test(text)) {
+      return 'fr'
+    }
+
+    if (/[àèìòù]/i.test(text)) {
+      return 'it'
+    }
+  }
+
+  if (
+    /(?:\b(?:não|nao|esta|está|para|com|dos|das|nos|nas|uma|umas|num|numa|será|serao)\b)/i.test(
+      text
+    )
+  ) {
+    return 'pt'
+  }
+
+  if (
+    /(?:\b(?:il|lo|la|gli|le|uno|una|degli|delle|per|con|non|sono|nel|nella)\b)/i.test(text)
+  ) {
+    return 'it'
+  }
+
+  if (
+    /(?:\b(?:le|la|les|des|une|un|pour|avec|sans|est|qui|pas|dans|sur)\b)/i.test(text)
+  ) {
+    return 'fr'
+  }
+
+  if (
+    /(?:\b(?:der|die|das|und|nicht|mit|ein|eine|auf|für|zum|zur|den|dem)\b)/i.test(text)
+  ) {
+    return 'de'
+  }
+
+  if (
+    /(?:\b(?:el|la|los|las|un|una|de|que|para|con|por|del|al|y|en|se)\b)/i.test(text)
+  ) {
     return 'es'
   }
 
