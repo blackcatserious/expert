@@ -36,25 +36,39 @@ export function parseToolCallXml<T>(
       })
     }
 
+    const LIST_SEPARATOR = /[,\n]/
+
+    const transformedParameters: Record<string, unknown> = {
+      ...rawParameters
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(rawParameters, 'include_domains')
+    ) {
+      transformedParameters.include_domains = rawParameters.include_domains
+        ?.split(LIST_SEPARATOR)
+        .map(domain => domain.trim())
+        .filter(Boolean)
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(rawParameters, 'exclude_domains')
+    ) {
+      transformedParameters.exclude_domains = rawParameters.exclude_domains
+        ?.split(LIST_SEPARATOR)
+        .map(domain => domain.trim())
+        .filter(Boolean)
+    }
+
+    if (rawParameters.max_results) {
+      const parsedMaxResults = parseInt(rawParameters.max_results, 10)
+      if (!Number.isNaN(parsedMaxResults)) {
+        transformedParameters.max_results = parsedMaxResults
+      }
+    }
+
     // Parse parameters using the provided schema
-    const parameters = schema.parse({
-      ...rawParameters,
-      // Convert comma-separated strings to arrays for array fields with default empty arrays
-      include_domains:
-        rawParameters.include_domains
-          ?.split(',')
-          .map(d => d.trim())
-          .filter(Boolean) ?? [],
-      exclude_domains:
-        rawParameters.exclude_domains
-          ?.split(',')
-          .map(d => d.trim())
-          .filter(Boolean) ?? [],
-      // Convert string to number for numeric fields
-      max_results: rawParameters.max_results
-        ? parseInt(rawParameters.max_results, 10)
-        : undefined
-    })
+    const parameters = schema.parse(transformedParameters)
 
     return { tool, parameters }
   } catch (error) {
