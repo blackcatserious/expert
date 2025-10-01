@@ -294,4 +294,8 @@ variants prefixed with `NEXT_PUBLIC_` are also supported when you need to reuse
 the same configuration in client-side code. Setting
 `DOMAIN_AGENT_INSTRUCTIONS` (or its public counterpart) automatically appends
 the guidance to the researcher prompts used across Morphic, ensuring both the
-automated and manual modes highlight your preferred sources.
+automated and manual modes highlight your preferred sources. When any of these
+values are configured, the chat composer surfaces an inline notice that
+explains the active include/exclude filters and the custom agent playbook so
+human operators understand the guardrails before they start a session or share
+the conversation URL.

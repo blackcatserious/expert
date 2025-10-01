@@ -1,4 +1,4 @@
-type DomainConfiguration = {
+export type DomainConfiguration = {
   defaultIncludeDomains: string[]
   defaultExcludeDomains: string[]
   agentInstructions?: string

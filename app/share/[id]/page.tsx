@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 
 import { getSharedChat } from '@/lib/actions/chat'
+import { getDomainConfiguration } from '@/lib/config/domain'
 import { getModels } from '@/lib/config/models'
 import { convertToUIMessages } from '@/lib/utils'
 
@@ -32,11 +33,13 @@ export default async function SharePage(props: {
   }
 
   const models = await getModels()
+  const domainConfig = getDomainConfiguration()
   return (
     <Chat
       id={chat.id}
       savedMessages={convertToUIMessages(chat.messages)}
       models={models}
+      domainConfig={domainConfig}
     />
   )
 }
