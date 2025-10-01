@@ -225,6 +225,7 @@ SERPER_API_KEY=[YOUR_API_KEY]
 ```bash
 JINA_API_KEY=[YOUR_API_KEY]
 ```
+
 ## Base URL & Multi-domain Deployments
 
 Use the `BASE_URL` (or `NEXT_PUBLIC_BASE_URL`) environment variable when you
@@ -268,4 +269,3 @@ object, or even a plain header record when resolving URLs during background
 tasks. If you need to change `BASE_URL`-related environment variables between
 tests, call `resetBaseUrlCache()` from the same module so subsequent assertions
 pick up the updated values.
-
