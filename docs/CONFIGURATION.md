@@ -269,3 +269,29 @@ object, or even a plain header record when resolving URLs during background
 tasks. If you need to change `BASE_URL`-related environment variables between
 tests, call `resetBaseUrlCache()` from the same module so subsequent assertions
 pick up the updated values.
+
+## Domain-aware Search Defaults
+
+When Morphic is primarily used for your own properties, you can pre-configure
+the search agent to focus on specific domains and inject custom research
+instructions. These settings apply to both standard and advanced search flows,
+and they automatically inform the AI agents so the generated answers stay on
+brand.
+
+```bash
+# Prioritize first-party domains (comma or newline separated)
+DEFAULT_INCLUDE_DOMAINS=example.com,docs.example.com
+
+# Optionally exclude noisy hosts from results
+DEFAULT_EXCLUDE_DOMAINS=ads.example.com
+
+# Provide extra guidance for the research agents
+DOMAIN_AGENT_INSTRUCTIONS="Prefer official documentation and product pages."
+```
+
+The `DEFAULT_*` variables accept comma- or newline-separated values. Public
+variants prefixed with `NEXT_PUBLIC_` are also supported when you need to reuse
+the same configuration in client-side code. Setting
+`DOMAIN_AGENT_INSTRUCTIONS` (or its public counterpart) automatically appends
+the guidance to the researcher prompts used across Morphic, ensuring both the
+automated and manual modes highlight your preferred sources.

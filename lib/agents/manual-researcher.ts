@@ -1,5 +1,7 @@
 import { CoreMessage, smoothStream, streamText } from 'ai'
 
+import { appendDomainInstructions } from '@/lib/config/domain'
+
 import { getModel } from '../utils/registry'
 
 const BASE_SYSTEM_PROMPT = `
@@ -51,9 +53,10 @@ export function manualResearcher({
 }: ManualResearcherConfig): ManualResearcherReturn {
   try {
     const currentDate = new Date().toLocaleString()
-    const systemPrompt = isSearchEnabled
+    const systemPromptBase = isSearchEnabled
       ? SEARCH_ENABLED_PROMPT
       : SEARCH_DISABLED_PROMPT
+    const systemPrompt = appendDomainInstructions(systemPromptBase)
 
     return {
       model: getModel(model),

@@ -1,5 +1,7 @@
 import { CoreMessage, smoothStream, streamText } from 'ai'
 
+import { appendDomainInstructions } from '@/lib/config/domain'
+
 import { createQuestionTool } from '../tools/question'
 import { retrieveTool } from '../tools/retrieve'
 import { createSearchTool } from '../tools/search'
@@ -53,9 +55,11 @@ export function researcher({
     const videoSearchTool = createVideoSearchTool(model)
     const askQuestionTool = createQuestionTool(model)
 
+    const domainAwarePrompt = appendDomainInstructions(SYSTEM_PROMPT)
+
     return {
       model: getModel(model),
-      system: `${SYSTEM_PROMPT}\nCurrent date and time: ${currentDate}`,
+      system: `${domainAwarePrompt}\nCurrent date and time: ${currentDate}`,
       messages,
       tools: {
         search: searchTool,

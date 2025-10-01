@@ -8,6 +8,10 @@ import { JSDOM, VirtualConsole } from 'jsdom'
 import { createClient } from 'redis'
 
 import {
+  getDomainConfiguration,
+  normaliseDomainList
+} from '@/lib/config/domain'
+import {
   SearchResultItem,
   SearXNGResponse,
   SearXNGResult,
@@ -127,15 +131,38 @@ async function cleanupExpiredCache() {
 setInterval(cleanupExpiredCache, CACHE_EXPIRATION_CHECK_INTERVAL)
 
 export async function POST(request: Request) {
-  const { query, maxResults, searchDepth, includeDomains, excludeDomains } =
-    await request.json()
+  const payload = await request.json()
 
-  const SEARXNG_DEFAULT_DEPTH = process.env.SEARXNG_DEFAULT_DEPTH || 'basic'
+  const query: string = payload.query
+  const maxResults: number | undefined = payload.maxResults
+  const searchDepth: string | undefined = payload.searchDepth
+  const includeDomainsRaw = payload.includeDomains
+  const excludeDomainsRaw = payload.excludeDomains
+
+  const domainConfig = getDomainConfiguration()
+
+  const includeDomainsProvided = Object.prototype.hasOwnProperty.call(
+    payload,
+    'includeDomains'
+  )
+  const excludeDomainsProvided = Object.prototype.hasOwnProperty.call(
+    payload,
+    'excludeDomains'
+  )
+
+  const includeDomains = includeDomainsProvided
+    ? normaliseDomainList(includeDomainsRaw)
+    : domainConfig.defaultIncludeDomains
+
+  const excludeDomains = excludeDomainsProvided
+    ? normaliseDomainList(excludeDomainsRaw)
+    : domainConfig.defaultExcludeDomains
+
+  const SEARXNG_DEFAULT_DEPTH: 'basic' | 'advanced' =
+    process.env.SEARXNG_DEFAULT_DEPTH === 'advanced' ? 'advanced' : 'basic'
 
   try {
-    const cacheKey = `search:${query}:${maxResults}:${searchDepth}:${
-      Array.isArray(includeDomains) ? includeDomains.join(',') : ''
-    }:${Array.isArray(excludeDomains) ? excludeDomains.join(',') : ''}`
+    const cacheKey = `search:${query}:${maxResults}:${searchDepth}:${includeDomains.join(',')}:${excludeDomains.join(',')}`
 
     // Try to get cached results
     const cachedResults = await getCachedResults(cacheKey)
@@ -144,12 +171,25 @@ export async function POST(request: Request) {
     }
 
     // If not cached, perform the search
+    const requestedMaxResults =
+      typeof maxResults === 'number' ? maxResults : SEARXNG_MAX_RESULTS
+    const effectiveMaxResults = Math.min(
+      requestedMaxResults,
+      SEARXNG_MAX_RESULTS
+    )
+    const effectiveSearchDepth: 'basic' | 'advanced' =
+      searchDepth === 'advanced'
+        ? 'advanced'
+        : searchDepth === 'basic'
+          ? 'basic'
+          : SEARXNG_DEFAULT_DEPTH
+
     const results = await advancedSearchXNGSearch(
       query,
-      Math.min(maxResults, SEARXNG_MAX_RESULTS),
-      searchDepth || SEARXNG_DEFAULT_DEPTH,
-      Array.isArray(includeDomains) ? includeDomains : [],
-      Array.isArray(excludeDomains) ? excludeDomains : []
+      effectiveMaxResults,
+      effectiveSearchDepth,
+      includeDomains,
+      excludeDomains
     )
 
     // Cache the results

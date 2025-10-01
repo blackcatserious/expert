@@ -71,6 +71,7 @@ Models are configured in `public/config/models.json`. Each model requires its co
 
 - Docker deployment ready
 - Browser search engine integration
+- Domain-aware defaults to prioritize your own properties during research
 
 ## 🧱 Stack
 
