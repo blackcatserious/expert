@@ -1,6 +1,9 @@
 import { tool } from 'ai'
 
-import { getDomainConfiguration } from '@/lib/config/domain'
+import {
+  getDomainConfiguration,
+  normaliseDomainList
+} from '@/lib/config/domain'
 import { getSearchSchemaForModel } from '@/lib/schema/search'
 import { SearchResults } from '@/lib/types'
 import { getBaseUrlString } from '@/lib/utils/url'
@@ -40,11 +43,11 @@ export function createSearchTool(fullModel: string) {
       )
 
       const include_domains = includeProvided
-        ? (params.include_domains ?? [])
+        ? normaliseDomainList(params.include_domains)
         : domainConfig.defaultIncludeDomains
 
       const exclude_domains = excludeProvided
-        ? (params.exclude_domains ?? [])
+        ? normaliseDomainList(params.exclude_domains)
         : domainConfig.defaultExcludeDomains
 
       // Ensure max_results is at least 10

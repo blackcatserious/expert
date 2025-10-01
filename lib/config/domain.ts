@@ -6,6 +6,42 @@ export type DomainConfiguration = {
 
 const LIST_SPLIT_REGEX = /[,\n]/
 
+function sanitiseDomainEntry(raw: string) {
+  const trimmed = raw.trim()
+  if (!trimmed) {
+    return ''
+  }
+
+  const hasWildcard = trimmed.startsWith('*.')
+  const withoutWildcard = hasWildcard ? trimmed.slice(2) : trimmed
+
+  const withoutScheme = withoutWildcard.replace(/^https?:\/\//i, '')
+  const withoutPath = withoutScheme.replace(/[#/?].*$/, '')
+
+  const cleaned = withoutPath.toLowerCase()
+  if (!cleaned) {
+    return ''
+  }
+
+  return hasWildcard ? `*.${cleaned}` : cleaned
+}
+
+function normaliseDomains(domains: string[]) {
+  const seen = new Set<string>()
+  const result: string[] = []
+
+  for (const domain of domains) {
+    const cleaned = sanitiseDomainEntry(domain)
+    if (!cleaned || seen.has(cleaned)) {
+      continue
+    }
+    seen.add(cleaned)
+    result.push(cleaned)
+  }
+
+  return result
+}
+
 function getFirstEnvValue(keys: string[]) {
   for (const key of keys) {
     const value = process.env[key]
@@ -21,10 +57,12 @@ function parseListFromString(raw?: string) {
     return []
   }
 
-  return raw
+  const entries = raw
     .split(LIST_SPLIT_REGEX)
     .map(part => part.trim())
     .filter(Boolean)
+
+  return normaliseDomains(entries)
 }
 
 export function normaliseDomainList(input: unknown) {
@@ -33,9 +71,9 @@ export function normaliseDomainList(input: unknown) {
   }
 
   if (Array.isArray(input)) {
-    return input
-      .map(item => (typeof item === 'string' ? item.trim() : ''))
-      .filter(Boolean)
+    return normaliseDomains(
+      input.map(item => (typeof item === 'string' ? item : ''))
+    )
   }
 
   if (typeof input === 'string') {
@@ -43,6 +81,29 @@ export function normaliseDomainList(input: unknown) {
   }
 
   return []
+}
+
+export function hostMatchesConfiguredDomain(
+  hostname: string,
+  configured: string
+) {
+  if (!hostname || !configured) {
+    return false
+  }
+
+  const lowerHost = hostname.toLowerCase()
+  const hasWildcard = configured.startsWith('*.')
+  const domain = hasWildcard ? configured.slice(2) : configured
+
+  if (!domain) {
+    return false
+  }
+
+  if (lowerHost === domain) {
+    return true
+  }
+
+  return lowerHost.endsWith(`.${domain}`)
 }
 
 let cachedConfiguration: DomainConfiguration | undefined

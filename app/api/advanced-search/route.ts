@@ -9,6 +9,7 @@ import { createClient } from 'redis'
 
 import {
   getDomainConfiguration,
+  hostMatchesConfiguredDomain,
   normaliseDomainList
 } from '@/lib/config/domain'
 import {
@@ -277,12 +278,30 @@ async function advancedSearchXNGSearch(
     // Apply domain filtering manually
     if (includeDomains.length > 0 || excludeDomains.length > 0) {
       generalResults = generalResults.filter(result => {
-        const domain = new URL(result.url).hostname
-        return (
-          (includeDomains.length === 0 ||
-            includeDomains.some(d => domain.includes(d))) &&
-          (excludeDomains.length === 0 ||
-            !excludeDomains.some(d => domain.includes(d)))
+        let hostname = ''
+        try {
+          hostname = new URL(result.url).hostname
+        } catch (error) {
+          console.warn('Failed to parse hostname for result', result.url, error)
+          return includeDomains.length === 0
+        }
+
+        const matchesInclude =
+          includeDomains.length === 0 ||
+          includeDomains.some(domain =>
+            hostMatchesConfiguredDomain(hostname, domain)
+          )
+
+        if (!matchesInclude) {
+          return false
+        }
+
+        if (excludeDomains.length === 0) {
+          return true
+        }
+
+        return !excludeDomains.some(domain =>
+          hostMatchesConfiguredDomain(hostname, domain)
         )
       })
     }

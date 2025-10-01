@@ -34,8 +34,8 @@ describe('parseToolCallXml', () => {
         <tool>search</tool>
         <parameters>
           <query>Summarise the documentation</query>
-          <include_domains>example.com, docs.example.com\nguides.example.com</include_domains>
-          <exclude_domains>ads.example.com\n analytics.example.com</exclude_domains>
+          <include_domains>example.com, https://docs.example.com\nguides.example.com/faq</include_domains>
+          <exclude_domains>ads.example.com\n HTTPS://analytics.example.com/path</exclude_domains>
           <max_results>25</max_results>
         </parameters>
       </tool_call>

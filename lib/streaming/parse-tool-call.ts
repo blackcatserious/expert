@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { normaliseDomainList } from '@/lib/config/domain'
+
 export interface ToolCall<T = unknown> {
   tool: string
   parameters?: T
@@ -36,8 +38,6 @@ export function parseToolCallXml<T>(
       })
     }
 
-    const LIST_SEPARATOR = /[,\n]/
-
     const transformedParameters: Record<string, unknown> = {
       ...rawParameters
     }
@@ -45,19 +45,17 @@ export function parseToolCallXml<T>(
     if (
       Object.prototype.hasOwnProperty.call(rawParameters, 'include_domains')
     ) {
-      transformedParameters.include_domains = rawParameters.include_domains
-        ?.split(LIST_SEPARATOR)
-        .map(domain => domain.trim())
-        .filter(Boolean)
+      transformedParameters.include_domains = normaliseDomainList(
+        rawParameters.include_domains
+      )
     }
 
     if (
       Object.prototype.hasOwnProperty.call(rawParameters, 'exclude_domains')
     ) {
-      transformedParameters.exclude_domains = rawParameters.exclude_domains
-        ?.split(LIST_SEPARATOR)
-        .map(domain => domain.trim())
-        .filter(Boolean)
+      transformedParameters.exclude_domains = normaliseDomainList(
+        rawParameters.exclude_domains
+      )
     }
 
     if (rawParameters.max_results) {

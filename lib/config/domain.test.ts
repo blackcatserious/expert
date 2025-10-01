@@ -5,6 +5,7 @@ import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import {
   appendDomainInstructions,
   getDomainConfiguration,
+  hostMatchesConfiguredDomain,
   normaliseDomainList,
   resetDomainConfigurationCache
 } from './domain'
@@ -91,25 +92,79 @@ describe('getDomainConfiguration', () => {
       'public-excluded.example.com'
     ])
   })
+  test('normalises scheme, casing, and wildcards from environment values', () => {
+    process.env.DEFAULT_INCLUDE_DOMAINS =
+      'HTTPS://Docs.EXAMPLE.com/path, *.blog.example.com'
+    process.env.DEFAULT_EXCLUDE_DOMAINS =
+      'ads.example.com, HTTPS://Ads.EXAMPLE.com'
+    resetDomainConfigurationCache()
+
+    const configuration = getDomainConfiguration()
+
+    expect(configuration.defaultIncludeDomains).toEqual([
+      'docs.example.com',
+      '*.blog.example.com'
+    ])
+    expect(configuration.defaultExcludeDomains).toEqual(['ads.example.com'])
+  })
 })
 
 describe('normaliseDomainList', () => {
   test('supports string and array inputs', () => {
     expect(
       normaliseDomainList(
-        'one.example.com, two.example.com\n three.example.com'
+        'one.example.com, two.example.com\n three.example.com, https://two.example.com/path'
       )
     ).toEqual(['one.example.com', 'two.example.com', 'three.example.com'])
 
     expect(
-      normaliseDomainList(['four.example.com', '  five.example.com  '])
-    ).toEqual(['four.example.com', 'five.example.com'])
+      normaliseDomainList([
+        'four.example.com',
+        '  FIVE.example.com  ',
+        '*.Docs.example.com'
+      ])
+    ).toEqual(['four.example.com', 'five.example.com', '*.docs.example.com'])
   })
 
   test('returns an empty array for unsupported input', () => {
     expect(normaliseDomainList(undefined)).toEqual([])
     expect(normaliseDomainList(null)).toEqual([])
     expect(normaliseDomainList(123)).toEqual([])
+  })
+})
+
+describe('hostMatchesConfiguredDomain', () => {
+  test('matches exact domains and subdomains', () => {
+    expect(hostMatchesConfiguredDomain('docs.example.com', 'example.com')).toBe(
+      true
+    )
+    expect(
+      hostMatchesConfiguredDomain('docs.example.com', 'docs.example.com')
+    ).toBe(true)
+    expect(
+      hostMatchesConfiguredDomain('nested.docs.example.com', 'docs.example.com')
+    ).toBe(true)
+  })
+
+  test('supports wildcard preferences', () => {
+    expect(
+      hostMatchesConfiguredDomain('blog.example.com', '*.example.com')
+    ).toBe(true)
+    expect(hostMatchesConfiguredDomain('example.com', '*.example.com')).toBe(
+      true
+    )
+  })
+
+  test('does not match unrelated domains', () => {
+    expect(hostMatchesConfiguredDomain('news.example.net', 'example.com')).toBe(
+      false
+    )
+    expect(hostMatchesConfiguredDomain('badexample.com', 'example.com')).toBe(
+      false
+    )
+    expect(
+      hostMatchesConfiguredDomain('sub.example.com', '*.docs.example.com')
+    ).toBe(false)
   })
 })
 
