@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 
 import { getChat } from '@/lib/actions/chat'
 import { getCurrentUserId } from '@/lib/auth/get-current-user'
+import { getDomainConfiguration } from '@/lib/config/domain'
 import { getModels } from '@/lib/config/models'
 import { ExtendedCoreMessage, SearchResults } from '@/lib/types' // Added SearchResults
 import { convertToUIMessages } from '@/lib/utils'
@@ -75,5 +76,14 @@ export default async function SearchPage(props: {
   }
 
   const models = await getModels()
-  return <Chat key={id} id={id} savedMessages={messages} models={models} />
+  const domainConfig = getDomainConfiguration()
+  return (
+    <Chat
+      key={id}
+      id={id}
+      savedMessages={messages}
+      models={models}
+      domainConfig={domainConfig}
+    />
+  )
 }

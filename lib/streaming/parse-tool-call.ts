@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { normaliseDomainList } from '@/lib/config/domain'
+
 export interface ToolCall<T = unknown> {
   tool: string
   parameters?: T
@@ -36,25 +38,35 @@ export function parseToolCallXml<T>(
       })
     }
 
-    // Parse parameters using the provided schema
-    const parameters = schema.parse({
-      ...rawParameters,
-      // Convert comma-separated strings to arrays for array fields with default empty arrays
-      include_domains:
+    const transformedParameters: Record<string, unknown> = {
+      ...rawParameters
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(rawParameters, 'include_domains')
+    ) {
+      transformedParameters.include_domains = normaliseDomainList(
         rawParameters.include_domains
-          ?.split(',')
-          .map(d => d.trim())
-          .filter(Boolean) ?? [],
-      exclude_domains:
+      )
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(rawParameters, 'exclude_domains')
+    ) {
+      transformedParameters.exclude_domains = normaliseDomainList(
         rawParameters.exclude_domains
-          ?.split(',')
-          .map(d => d.trim())
-          .filter(Boolean) ?? [],
-      // Convert string to number for numeric fields
-      max_results: rawParameters.max_results
-        ? parseInt(rawParameters.max_results, 10)
-        : undefined
-    })
+      )
+    }
+
+    if (rawParameters.max_results) {
+      const parsedMaxResults = parseInt(rawParameters.max_results, 10)
+      if (!Number.isNaN(parsedMaxResults)) {
+        transformedParameters.max_results = parsedMaxResults
+      }
+    }
+
+    // Parse parameters using the provided schema
+    const parameters = schema.parse(transformedParameters)
 
     return { tool, parameters }
   } catch (error) {

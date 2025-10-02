@@ -7,6 +7,7 @@ import { ChatRequestOptions } from 'ai'
 import { Message } from 'ai/react'
 import { toast } from 'sonner'
 
+import type { DomainConfiguration } from '@/lib/config/domain'
 import { Model } from '@/lib/types/models'
 import { cn } from '@/lib/utils'
 
@@ -24,12 +25,14 @@ export function Chat({
   id,
   savedMessages = [],
   query,
-  models
+  models,
+  domainConfig
 }: {
   id: string
   savedMessages?: Message[]
   query?: string
   models?: Model[]
+  domainConfig?: DomainConfiguration
 }) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [isAtBottom, setIsAtBottom] = useState(true)
@@ -242,6 +245,7 @@ export function Chat({
         models={models}
         showScrollToBottomButton={!isAtBottom}
         scrollContainerRef={scrollContainerRef}
+        domainConfig={domainConfig}
       />
     </div>
   )

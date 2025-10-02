@@ -61,7 +61,9 @@ function hasHeadersProperty(value: unknown): value is { headers: unknown } {
   )
 }
 
-function toHeaderLike(value: HeaderSource | null | undefined): HeaderLike | undefined {
+function toHeaderLike(
+  value: HeaderSource | null | undefined
+): HeaderLike | undefined {
   if (!value) {
     return undefined
   }
@@ -203,7 +205,7 @@ function normaliseHostValue(host?: string | null): NormalisedHost | undefined {
     const parsed = new URL(`http://${primaryHost}`)
     return {
       host: parsed.host.toLowerCase(),
-      hostname: parsed.hostname.toLowerCase(),
+      hostname: parsed.hostname.toLowerCase()
     }
   } catch {
     const trimmed = primaryHost.trim().toLowerCase()
@@ -215,7 +217,7 @@ function normaliseHostValue(host?: string | null): NormalisedHost | undefined {
     const [hostname] = trimmed.split(':')
     return {
       host: trimmed,
-      hostname,
+      hostname
     }
   }
 }
@@ -303,9 +305,7 @@ function readDeploymentUrl(): URL | undefined {
       return undefined
     }
 
-    const candidate = trimmed.includes('://')
-      ? trimmed
-      : `https://${trimmed}`
+    const candidate = trimmed.includes('://') ? trimmed : `https://${trimmed}`
 
     const parsed = new URL(candidate)
 
@@ -395,7 +395,10 @@ function constructUrlFromHost(
   try {
     return new URL(`${effectiveProtocol}://${host.host}`)
   } catch (error) {
-    console.warn('Unable to construct base URL from headers. Falling back.', error)
+    console.warn(
+      'Unable to construct base URL from headers. Falling back.',
+      error
+    )
     return undefined
   }
 }
@@ -433,12 +436,13 @@ function resolveHeaderContext(headersList: HeaderLike): ResolvedHeaderContext {
     takePrimaryHeaderValue(headersList.get('x-host')) ||
     takePrimaryHeaderValue(headersList.get('host'))
 
-  const host = mergeHostAndPort(rawHost, forwardedPort, normalisedProtocol) || rawHost
+  const host =
+    mergeHostAndPort(rawHost, forwardedPort, normalisedProtocol) || rawHost
 
   return {
     directUrl,
     host: normaliseHostValue(host),
-    protocol: normalisedProtocol,
+    protocol: normalisedProtocol
   }
 }
 
@@ -470,7 +474,9 @@ function resolveUrlFromContext(
 
   return (
     context.directUrl ??
-    (contextHost ? constructUrlFromHost(contextHost, context.protocol) : undefined)
+    (contextHost
+      ? constructUrlFromHost(contextHost, context.protocol)
+      : undefined)
   )
 }
 
@@ -550,7 +556,7 @@ export async function getBaseUrlFromHeaders(
   providedHeaders?: MaybePromise<HeaderSource | null | undefined>
 ): Promise<URL> {
   const context = await resolveHeaderContextFromSources(providedHeaders, {
-    fallbackToNext: true,
+    fallbackToNext: true
   })
 
   const hostContext = context?.host
@@ -558,7 +564,9 @@ export async function getBaseUrlFromHeaders(
 
   return (
     context?.directUrl ??
-    (hostContext ? constructUrlFromHost(hostContext, context?.protocol) : undefined) ??
+    (hostContext
+      ? constructUrlFromHost(hostContext, context?.protocol)
+      : undefined) ??
     deploymentUrl ??
     fallbackBaseUrl()
   )
@@ -575,9 +583,12 @@ export async function getBaseUrl(
 ): Promise<URL> {
   const candidates = readBaseUrlCandidates()
   const deploymentUrl = readDeploymentUrl()
-  const initialContext = await resolveHeaderContextFromSources(providedHeaders, {
-    fallbackToNext: false,
-  })
+  const initialContext = await resolveHeaderContextFromSources(
+    providedHeaders,
+    {
+      fallbackToNext: false
+    }
+  )
 
   const initialResolved = resolveUrlFromContext(initialContext, candidates)
   if (initialResolved) {
@@ -585,7 +596,7 @@ export async function getBaseUrl(
   }
 
   const nextContext = await resolveHeaderContextFromSources(undefined, {
-    fallbackToNext: true,
+    fallbackToNext: true
   })
 
   const nextResolved = resolveUrlFromContext(nextContext, candidates)

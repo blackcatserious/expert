@@ -1,5 +1,9 @@
 import { tool } from 'ai'
 
+import {
+  getDomainConfiguration,
+  normaliseDomainList
+} from '@/lib/config/domain'
 import { getSearchSchemaForModel } from '@/lib/schema/search'
 import { SearchResults } from '@/lib/types'
 import { getBaseUrlString } from '@/lib/utils/url'
@@ -17,13 +21,35 @@ export function createSearchTool(fullModel: string) {
   return tool({
     description: 'Search the web for information',
     parameters: getSearchSchemaForModel(fullModel),
-    execute: async ({
-      query,
-      max_results = 20,
-      search_depth = 'basic', // Default for standard schema
-      include_domains = [],
-      exclude_domains = []
-    }) => {
+    execute: async rawParams => {
+      const params = rawParams as {
+        query: string
+        max_results?: number
+        search_depth?: string
+        include_domains?: string[]
+        exclude_domains?: string[]
+      }
+
+      const { query, max_results = 20, search_depth = 'basic' } = params
+
+      const domainConfig = getDomainConfiguration()
+      const includeProvided = Object.prototype.hasOwnProperty.call(
+        params,
+        'include_domains'
+      )
+      const excludeProvided = Object.prototype.hasOwnProperty.call(
+        params,
+        'exclude_domains'
+      )
+
+      const include_domains = includeProvided
+        ? normaliseDomainList(params.include_domains)
+        : domainConfig.defaultIncludeDomains
+
+      const exclude_domains = excludeProvided
+        ? normaliseDomainList(params.exclude_domains)
+        : domainConfig.defaultExcludeDomains
+
       // Ensure max_results is at least 10
       const minResults = 10
       const effectiveMaxResults = Math.max(

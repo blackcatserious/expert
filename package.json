@@ -81,6 +81,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "bun-types": "^1.2.23",
     "eslint": "^8",
     "eslint-config-next": "^14.2.25",
     "eslint-plugin-simple-import-sort": "^12.1.1",

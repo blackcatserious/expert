@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 
 import { generateId } from 'ai'
 
+import { getDomainConfiguration } from '@/lib/config/domain'
 import { getModels } from '@/lib/config/models'
 
 import { Chat } from '@/components/chat'
@@ -18,5 +19,6 @@ export default async function SearchPage(props: {
 
   const id = generateId()
   const models = await getModels()
-  return <Chat id={id} query={q} models={models} />
+  const domainConfig = getDomainConfiguration()
+  return <Chat id={id} query={q} models={models} domainConfig={domainConfig} />
 }

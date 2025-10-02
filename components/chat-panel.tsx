@@ -7,12 +7,14 @@ import { useRouter } from 'next/navigation'
 import { Message } from 'ai'
 import { ArrowUp, ChevronDown, MessageCirclePlus, Square } from 'lucide-react'
 
+import type { DomainConfiguration } from '@/lib/config/domain'
 import { Model } from '@/lib/types/models'
 import { cn } from '@/lib/utils'
 
 import { useArtifact } from './artifact/artifact-context'
 import { Button } from './ui/button'
 import { IconLogo } from './ui/icons'
+import { DomainPreferencesNotice } from './domain-preferences-notice'
 import { EmptyScreen } from './empty-screen'
 import { ModelSelector } from './model-selector'
 import { SearchModeToggle } from './search-mode-toggle'
@@ -32,6 +34,7 @@ interface ChatPanelProps {
   showScrollToBottomButton: boolean
   /** Reference to the scroll container */
   scrollContainerRef: React.RefObject<HTMLDivElement>
+  domainConfig?: DomainConfiguration
 }
 
 export function ChatPanel({
@@ -46,7 +49,8 @@ export function ChatPanel({
   append,
   models,
   showScrollToBottomButton,
-  scrollContainerRef
+  scrollContainerRef,
+  domainConfig
 }: ChatPanelProps) {
   const [showEmptyScreen, setShowEmptyScreen] = useState(false)
   const router = useRouter()
@@ -125,6 +129,13 @@ export function ChatPanel({
           </p>
         </div>
       )}
+      <DomainPreferencesNotice
+        domainConfig={domainConfig}
+        className={cn(
+          'mx-auto max-w-3xl',
+          messages.length === 0 ? 'mb-6' : 'mb-4'
+        )}
+      />
       <form
         onSubmit={handleSubmit}
         className={cn('max-w-3xl w-full mx-auto relative')}
