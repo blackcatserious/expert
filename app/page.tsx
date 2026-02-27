@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 const MODELS = [
-  { id: "tr-ultra", name: "TR Ultra", desc: "Maximum precision", icon: "\u25C6", color: "#00f5d4" },
-  { id: "tr-fast", name: "TR Fast", desc: "Speed optimized", icon: "\u26A1", color: "#fbbf24" },
-  { id: "tr-creative", name: "TR Creative", desc: "Creative generation", icon: "\u2726", color: "#c084fc" },
-  { id: "tr-agent", name: "TR Agent", desc: "Autonomous agents", icon: "\u25CE", color: "#f472b6" },
+  { id: "tr-ultra", name: "TR Ultra", desc: "Claude Sonnet \u2014 precision", icon: "\u25C6", color: "#00f5d4" },
+  { id: "tr-fast", name: "TR Fast", desc: "GPT-4o-mini \u2014 speed", icon: "\u26A1", color: "#fbbf24" },
+  { id: "tr-creative", name: "TR Creative", desc: "Claude \u2014 creative", icon: "\u2726", color: "#c084fc" },
+  { id: "tr-agent", name: "TR Agent", desc: "GPT-4o \u2014 agents", icon: "\u25CE", color: "#f472b6" },
 ];
 const MODES = [
   { id: "chat", label: "Chat", tag: "CH", desc: "AI conversation" },
@@ -21,13 +21,7 @@ const AGENTS = [
   { id: "developer", name: "Developer", tag: "DEV", desc: "Code generation" },
   { id: "translator", name: "Translator", tag: "TRL", desc: "Multi-language" },
 ];
-const SOURCES = [
-  { title: "TechCrunch - The Rise of AI Agents in 2026", domain: "techcrunch.com", score: 97 },
-  { title: "ArXiv - Scaling Laws for Neural Models", domain: "arxiv.org", score: 93 },
-  { title: "MIT Tech Review - Autonomous AI Systems", domain: "technologyreview.com", score: 89 },
-  { title: "The Verge - Latest AI Breakthroughs", domain: "theverge.com", score: 84 },
-];
-const HISTORY = [
+const HISTORY_ITEMS = [
   { id: 1, title: "AI market analysis 2026", mode: "search", time: "12m ago" },
   { id: 2, title: "Logo generation variants", mode: "generate", time: "1h ago" },
   { id: 3, title: "REST API refactoring", mode: "code", time: "3h ago" },
@@ -40,49 +34,21 @@ const QUICK = [
   { text: "Generate visual content", sub: "Images, diagrams, mockups" },
   { text: "Research any topic", sub: "With verified sources" },
 ];
-interface Msg { role: string; content: string; sources?: boolean; }
-function useTypewriter(text: string, speed: number, active: boolean) {
-  const [out, setOut] = useState("");
-  const [done, setDone] = useState(false);
-  useEffect(() => {
-    if (!active) { setOut(text); setDone(true); return; }
-    setOut(""); setDone(false);
-    let i = 0;
-    const t = setInterval(() => { i++; setOut(text.slice(0, i)); if (i >= text.length) { clearInterval(t); setDone(true); } }, speed);
-    return () => clearInterval(t);
-  }, [text, speed, active]);
-  return { out, done };
-}
+interface Msg { role: string; content: string; }
 function Spinner() {
   const [f, setF] = useState(0);
   const ch = ["\u280B","\u2819","\u2839","\u2838","\u283C","\u2834","\u2826","\u2827","\u2807","\u280F"];
   useEffect(() => { const t = setInterval(() => setF(x => (x + 1) % ch.length), 80); return () => clearInterval(t); }, []);
   return <span style={{ color: "var(--cyan)", fontFamily: "var(--mono)" }}>{ch[f]} Thinking</span>;
 }
-function MsgBubble({ msg, isLast }: { msg: Msg; isLast: boolean }) {
+function MsgBubble({ msg, streaming }: { msg: Msg; streaming?: boolean }) {
   const isUser = msg.role === "user";
-  const { out: text, done } = useTypewriter(msg.content, 10, !isUser && isLast);
   return (
     <div style={{ display: "flex", gap: 14, justifyContent: isUser ? "flex-end" : "flex-start", animation: "slideUp .3s ease both", marginBottom: 6 }}>
       {!isUser && <div style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, background: "linear-gradient(135deg,#00f5d4,#00b4d8)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--mono)", fontSize: 13, fontWeight: 800, color: "#060609", marginTop: 4 }}>TR</div>}
       <div style={{ maxWidth: "72%", padding: "14px 18px", background: isUser ? "rgba(0,245,212,.07)" : "rgba(255,255,255,.025)", border: "1px solid " + (isUser ? "rgba(0,245,212,.15)" : "rgba(255,255,255,.04)"), borderRadius: isUser ? "16px 16px 4px 16px" : "16px 16px 16px 4px", fontSize: 14, lineHeight: 1.75, whiteSpace: "pre-wrap", color: "#e4e4ed" }}>
-        {text}
-        {!isUser && !done && <span style={{ color: "#00f5d4", animation: "blink 1s infinite" }}>{"\u258D"}</span>}
-        {msg.sources && done && (
-          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#00f5d4", textTransform: "uppercase", letterSpacing: 1.5, fontFamily: "var(--mono)" }}>Sources</div>
-            {SOURCES.map((s, i) => (
-              <div key={i} style={{ background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)", borderRadius: 10, padding: "10px 14px", display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 7, background: "rgba(0,245,212," + (.25 - i * .04) + ")", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: "#00f5d4", fontFamily: "var(--mono)", flexShrink: 0 }}>{i + 1}</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</div>
-                  <div style={{ fontSize: 11, color: "#55556a", fontFamily: "var(--mono)" }}>{s.domain}</div>
-                </div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#00f5d4", fontFamily: "var(--mono)", background: "rgba(0,245,212,.08)", padding: "3px 9px", borderRadius: 20, flexShrink: 0 }}>{s.score}%</div>
-              </div>
-            ))}
-          </div>
-        )}
+        {msg.content}
+        {streaming && <span style={{ color: "#00f5d4", animation: "blink 1s infinite" }}>{"\u258D"}</span>}
       </div>
     </div>
   );
@@ -95,28 +61,74 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Msg[]>([]);
   const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
   const [agents, setAgents] = useState(["researcher"]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [genType, setGenType] = useState("text");
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
-  const send = useCallback(() => {
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading, streaming]);
+  const send = useCallback(async () => {
     if (!input.trim() || loading) return;
     const q = input.trim();
-    setMessages(p => [...p, { role: "user", content: q }]);
+    const userMsg: Msg = { role: "user", content: q };
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
     setInput(""); setLoading(true);
-    setTimeout(() => {
-      const r: Record<string, Msg> = {
-        chat: { role: "ai", content: "Great question about \"" + q + "\".\n\nBased on my analysis, here are the key insights:\n\nTraceRemove AI processes your query through multiple reasoning layers, cross-referencing real-time data with our knowledge graph. The " + model.name + " model excels at this type of analysis.\n\nI can elaborate on any specific aspect." },
-        search: { role: "ai", content: "Here are the most relevant results for \"" + q + "\":", sources: true },
-        generate: { role: "ai", content: "Generated " + genType + " content for \"" + q + "\":\n\n---\n\nContent produced using " + model.name + " with maximum quality.\n\n---\n\nComplete. I can refine or generate alternatives." },
-        agents: { role: "ai", content: "Task dispatched: \"" + q + "\"\n\n" + agents.map(function(a) { var ag = AGENTS.find(function(x) { return x.id === a; }); return ag ? "[" + ag.tag + "] " + ag.name + " processing" : ""; }).join("\n") + "\n\nAgents working autonomously..." },
-        code: { role: "ai", content: "```typescript\n// " + q + "\nimport { TraceRemoveClient } from '@traceremove/sdk';\nconst client = new TraceRemoveClient({ model: '" + model.id + "' });\nexport async function execute(query: string) {\n  const result = await client.process({ input: query, streaming: true });\n  return result;\n}\n```\n\nReady to use." },
-      };
-      setMessages(p => [...p, r[mode] || r.chat]); setLoading(false);
-    }, 1200 + Math.random() * 800);
-  }, [input, loading, mode, model, agents, genType]);
+    try {
+      abortRef.current = new AbortController();
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: newMessages, modelId: model.id, mode }),
+        signal: abortRef.current.signal,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Request failed" }));
+        setMessages(prev => [...prev, { role: "ai", content: "Error: " + (err.error || res.statusText) }]);
+        setLoading(false);
+        return;
+      }
+      setLoading(false); setStreaming(true);
+      const aiMsg: Msg = { role: "ai", content: "" };
+      setMessages(prev => [...prev, aiMsg]);
+      const reader = res.body?.getReader();
+      if (!reader) return;
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let fullText = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6).trim();
+            if (data === "[DONE]") continue;
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.text) {
+                fullText += parsed.text;
+                setMessages(prev => {
+                  const updated = [...prev];
+                  updated[updated.length - 1] = { role: "ai", content: fullText };
+                  return updated;
+                });
+              }
+            } catch {}
+          }
+        }
+      }
+      setStreaming(false);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      setMessages(prev => [...prev, { role: "ai", content: "Connection error. Please try again." }]);
+      setLoading(false); setStreaming(false);
+    }
+  }, [input, loading, messages, model.id, mode]);
   const currentMode = MODES.find(function(m) { return m.id === mode; }) || MODES[0];
   return (
     <div style={{ width: "100%", height: "100vh", display: "flex", background: "var(--bg)", color: "var(--fg)", fontFamily: "var(--sans)", overflow: "hidden", position: "relative" }}>
@@ -129,7 +141,7 @@ export default function Home() {
             <div style={{ marginLeft: "auto", fontSize: 10, color: "var(--dim)", background: "rgba(0,245,212,.08)", padding: "2px 8px", borderRadius: 20, fontFamily: "var(--mono)", fontWeight: 600 }}>v2.0</div>
           </div>
           <div style={{ padding: "14px 14px 6px" }}>
-            <button onClick={function() { setMessages([]); }} style={{ width: "100%", padding: "10px 14px", background: "linear-gradient(135deg,rgba(0,245,212,.1),rgba(0,180,216,.05))", border: "1px solid rgba(0,245,212,.15)", borderRadius: 9, color: "#00f5d4", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit" }}>
+            <button onClick={function() { setMessages([]); if (abortRef.current) abortRef.current.abort(); setLoading(false); setStreaming(false); }} style={{ width: "100%", padding: "10px 14px", background: "linear-gradient(135deg,rgba(0,245,212,.1),rgba(0,180,216,.05))", border: "1px solid rgba(0,245,212,.15)", borderRadius: 9, color: "#00f5d4", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit" }}>
               <span style={{ fontSize: 16, fontWeight: 300 }}>+</span> New conversation
             </button>
           </div>
@@ -144,7 +156,7 @@ export default function Home() {
           </div>
           <div style={{ flex: 1, overflow: "auto", padding: "8px 14px" }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 6, paddingLeft: 4, fontFamily: "var(--mono)" }}>Recent</div>
-            {HISTORY.map(function(h) { const modeObj = MODES.find(function(m) { return m.id === h.mode; }); return (
+            {HISTORY_ITEMS.map(function(h) { const modeObj = MODES.find(function(m) { return m.id === h.mode; }); return (
               <div key={h.id} style={{ padding: "7px 10px", borderRadius: 7, cursor: "pointer", marginBottom: 1, display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{ fontFamily: "var(--mono)", fontSize: 9, fontWeight: 600, color: "var(--dim)", background: "rgba(255,255,255,.04)", padding: "1px 5px", borderRadius: 3, textTransform: "uppercase" }}>{modeObj ? modeObj.tag : ""}</div>
                 <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 12, fontWeight: 500, color: "var(--dim2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{h.title}</div></div>
@@ -182,7 +194,7 @@ export default function Home() {
               <span style={{ color: model.color, fontSize: 14 }}>{model.icon}</span>{model.name}<span style={{ color: "var(--dim)", fontSize: 8 }}>{"\u25BC"}</span>
             </button>
             {modelDrop && (
-              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 11, padding: 5, minWidth: 210, boxShadow: "0 20px 60px rgba(0,0,0,.5)", zIndex: 100, animation: "slideUp .15s ease" }}>
+              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 11, padding: 5, minWidth: 220, boxShadow: "0 20px 60px rgba(0,0,0,.5)", zIndex: 100, animation: "slideUp .15s ease" }}>
                 {MODELS.map(function(m) { return (
                   <div key={m.id} onClick={function() { setModel(m); setModelDrop(false); }} style={{ padding: "9px 12px", borderRadius: 7, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, background: model.id === m.id ? "rgba(0,245,212,.05)" : "transparent" }}>
                     <span style={{ fontSize: 16, color: m.color }}>{m.icon}</span>
@@ -241,7 +253,7 @@ export default function Home() {
             </div>
           ) : (
             <div style={{ maxWidth: 780, margin: "0 auto" }}>
-              {messages.map(function(msg, i) { return <MsgBubble key={i} msg={msg} isLast={i === messages.length - 1} />; })}
+              {messages.map(function(msg, i) { return <MsgBubble key={i} msg={msg} streaming={streaming && i === messages.length - 1 && msg.role === "ai"} />; })}
               {loading && (
                 <div style={{ display: "flex", gap: 14, animation: "slideUp .3s ease", marginBottom: 6 }}>
                   <div style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, background: "linear-gradient(135deg,#00f5d4,#00b4d8)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--mono)", fontSize: 13, fontWeight: 800, color: "#060609" }}>TR</div>
