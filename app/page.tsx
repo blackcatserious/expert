@@ -34,6 +34,17 @@ const QUICK = [
 interface Msg { role: string; content: string; error?: boolean; }
 interface Conv { id: string; title: string; mode: string; model: string; updated_at: string; messages?: { id: string; role: string; content: string; created_at: string }[]; }
 
+function useIsMobile() {
+  const [mobile, setMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  return mobile;
+}
+
 function CodeBlock({ className, children }: { className?: string; children: string }) {
   const [copied, setCopied] = useState(false);
   const lang = className?.replace("language-", "") || "";
@@ -91,24 +102,24 @@ function ErrorBubble({ content }: { content: string }) {
   let msg = content;
   try { const p = JSON.parse(content.replace(/^Error:\s*/, "")); msg = p?.error?.message || p?.message || content; } catch {}
   if (msg.includes("credit balance")) msg = "Anthropic credits exhausted. Top up at console.anthropic.com";
-  if (msg.includes("rate_limit")) msg = "Too many requests. Wait a moment and try again.";
-  if (msg.includes("overloaded")) msg = "AI model temporarily overloaded. Try again shortly.";
+  if (msg.includes("rate_limit")) msg = "Too many requests. Wait a moment.";
+  if (msg.includes("overloaded")) msg = "AI model temporarily overloaded.";
   if (msg.includes("invalid_api_key") || msg.includes("not set")) msg = "API key not configured.";
   return (
     <div style={{ display: "flex", gap: 14, animation: "slideUp .3s ease both", marginBottom: 6 }}>
       <div style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, background: "linear-gradient(135deg,#ef4444,#dc2626)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--mono)", fontSize: 15, fontWeight: 800, color: "#fff", marginTop: 4 }}>!</div>
-      <div style={{ maxWidth: "72%", padding: "14px 18px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.15)", borderRadius: "16px 16px 16px 4px", fontSize: 14, lineHeight: 1.75, color: "#fca5a5" }}>{msg}</div>
+      <div style={{ maxWidth: "85%", padding: "14px 18px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.15)", borderRadius: "16px 16px 16px 4px", fontSize: 14, lineHeight: 1.75, color: "#fca5a5" }}>{msg}</div>
     </div>
   );
 }
 
-function MsgBubble({ msg, streaming }: { msg: Msg; streaming?: boolean }) {
+function MsgBubble({ msg, streaming, isMobile }: { msg: Msg; streaming?: boolean; isMobile: boolean }) {
   const isUser = msg.role === "user";
   if (msg.error) return <ErrorBubble content={msg.content} />;
   return (
-    <div style={{ display: "flex", gap: 14, justifyContent: isUser ? "flex-end" : "flex-start", animation: "slideUp .3s ease both", marginBottom: 6 }}>
-      {!isUser && <div style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, background: "linear-gradient(135deg,#00f5d4,#00b4d8)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--mono)", fontSize: 13, fontWeight: 800, color: "#060609", marginTop: 4 }}>TR</div>}
-      <div style={{ maxWidth: "72%", padding: "14px 18px", background: isUser ? "rgba(0,245,212,.07)" : "rgba(255,255,255,.025)", border: "1px solid " + (isUser ? "rgba(0,245,212,.15)" : "rgba(255,255,255,.04)"), borderRadius: isUser ? "16px 16px 4px 16px" : "16px 16px 16px 4px", fontSize: 14, lineHeight: 1.75, color: "#e4e4ed" }}>
+    <div style={{ display: "flex", gap: isMobile ? 10 : 14, justifyContent: isUser ? "flex-end" : "flex-start", animation: "slideUp .3s ease both", marginBottom: 6 }}>
+      {!isUser && <div style={{ width: isMobile ? 28 : 32, height: isMobile ? 28 : 32, borderRadius: 9, flexShrink: 0, background: "linear-gradient(135deg,#00f5d4,#00b4d8)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--mono)", fontSize: isMobile ? 11 : 13, fontWeight: 800, color: "#060609", marginTop: 4 }}>TR</div>}
+      <div style={{ maxWidth: isMobile ? "88%" : "72%", padding: isMobile ? "12px 14px" : "14px 18px", background: isUser ? "rgba(0,245,212,.07)" : "rgba(255,255,255,.025)", border: "1px solid " + (isUser ? "rgba(0,245,212,.15)" : "rgba(255,255,255,.04)"), borderRadius: isUser ? "16px 16px 4px 16px" : "16px 16px 16px 4px", fontSize: isMobile ? 13 : 14, lineHeight: 1.75, color: "#e4e4ed" }}>
         {isUser ? msg.content : <MarkdownContent content={msg.content} />}
         {streaming && <span style={{ color: "#00f5d4", animation: "blink 1s infinite" }}>{"\u258D"}</span>}
       </div>
@@ -127,7 +138,8 @@ function timeAgo(date: string) {
 
 export default function Home() {
   const { user } = useUser();
-  const [sidebar, setSidebar] = useState(true);
+  const isMobile = useIsMobile();
+  const [sidebar, setSidebar] = useState(false);
   const [mode, setMode] = useState("chat");
   const [model, setModel] = useState(MODELS[0]);
   const [modelDrop, setModelDrop] = useState(false);
@@ -145,7 +157,9 @@ export default function Home() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Load conversations
+  // Show sidebar by default on desktop
+  useEffect(() => { if (!isMobile) setSidebar(true); }, [isMobile]);
+
   useEffect(() => {
     fetch("/api/conversations").then(r => r.json()).then(data => {
       if (Array.isArray(data)) setConversations(data);
@@ -153,7 +167,8 @@ export default function Home() {
     }).catch(() => setLoadingConvs(false));
   }, []);
 
-  // Load messages when switching conversation
+  const closeSidebarMobile = useCallback(() => { if (isMobile) setSidebar(false); }, [isMobile]);
+
   const loadConversation = useCallback((conv: Conv) => {
     setActiveConv(conv.id);
     setMode(conv.mode || "chat");
@@ -162,18 +177,16 @@ export default function Home() {
     if (conv.messages && conv.messages.length > 0) {
       const sorted = [...conv.messages].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
       setMessages(sorted.map(m => ({ role: m.role, content: m.content })));
-    } else {
-      setMessages([]);
-    }
-  }, []);
+    } else { setMessages([]); }
+    closeSidebarMobile();
+  }, [closeSidebarMobile]);
 
   const newConversation = useCallback(() => {
-    setActiveConv(null);
-    setMessages([]);
+    setActiveConv(null); setMessages([]);
     if (abortRef.current) abortRef.current.abort();
-    setLoading(false);
-    setStreaming(false);
-  }, []);
+    setLoading(false); setStreaming(false);
+    closeSidebarMobile();
+  }, [closeSidebarMobile]);
 
   const deleteConversation = useCallback(async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -191,85 +204,41 @@ export default function Home() {
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setInput(""); setLoading(true);
-
     let convId = activeConv;
-
     try {
-      // Create conversation if new
       if (!convId) {
-        const res = await fetch("/api/conversations", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: q.slice(0, 80), mode, model: model.id }),
-        });
+        const res = await fetch("/api/conversations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: q.slice(0, 80), mode, model: model.id }) });
         const conv = await res.json();
-        convId = conv.id;
-        setActiveConv(conv.id);
+        convId = conv.id; setActiveConv(conv.id);
         setConversations(prev => [conv, ...prev]);
       }
-
-      // Save user message
-      await fetch("/api/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversationId: convId, role: "user", content: q }),
-      });
-
-      // Call AI
+      await fetch("/api/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conversationId: convId, role: "user", content: q }) });
       abortRef.current = new AbortController();
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages.map(m => ({ role: m.role, content: m.content })), modelId: model.id, mode }),
-        signal: abortRef.current.signal,
-      });
-
-      if (!res.ok) {
-        const errText = await res.text();
-        setMessages(prev => [...prev, { role: "ai", content: errText, error: true }]);
-        setLoading(false); return;
-      }
-
+      const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: newMessages.map(m => ({ role: m.role, content: m.content })), modelId: model.id, mode }), signal: abortRef.current.signal });
+      if (!res.ok) { const errText = await res.text(); setMessages(prev => [...prev, { role: "ai", content: errText, error: true }]); setLoading(false); return; }
       setLoading(false); setStreaming(true);
       setMessages(prev => [...prev, { role: "ai", content: "" }]);
       const reader = res.body?.getReader();
       if (!reader) return;
       const decoder = new TextDecoder();
-      let buffer = "";
-      let fullText = "";
-
+      let buffer = "", fullText = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+        const lines = buffer.split("\n"); buffer = lines.pop() || "";
         for (const line of lines) {
           if (line.startsWith("data: ")) {
             const data = line.slice(6).trim();
             if (data === "[DONE]") continue;
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.text) {
-                fullText += parsed.text;
-                setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: "ai", content: fullText }; return u; });
-              }
-            } catch {}
+            try { const parsed = JSON.parse(data); if (parsed.text) { fullText += parsed.text; setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: "ai", content: fullText }; return u; }); } } catch {}
           }
         }
       }
-
-      // Save AI response
       if (convId && fullText) {
-        fetch("/api/messages", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ conversationId: convId, role: "ai", content: fullText }),
-        });
-        // Update conversation in sidebar
+        fetch("/api/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conversationId: convId, role: "ai", content: fullText }) });
         setConversations(prev => prev.map(c => c.id === convId ? { ...c, updated_at: new Date().toISOString() } : c));
       }
-
       setStreaming(false);
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") return;
@@ -279,17 +248,36 @@ export default function Home() {
   }, [input, loading, messages, model.id, mode, activeConv]);
 
   const currentMode = MODES.find(m => m.id === mode) || MODES[0];
+  const sidebarW = isMobile ? 280 : 272;
 
   return (
     <div style={{ width: "100%", height: "100vh", display: "flex", background: "var(--bg)", color: "var(--fg)", fontFamily: "var(--sans)", overflow: "hidden", position: "relative" }}>
       <div style={{ position: "absolute", top: -300, right: -200, width: 800, height: 800, borderRadius: "50%", background: "radial-gradient(circle,rgba(0,245,212,.015) 0%,transparent 65%)", pointerEvents: "none" }} />
+
+      {/* MOBILE BACKDROP */}
+      {isMobile && sidebar && (
+        <div onClick={() => setSidebar(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 9, backdropFilter: "blur(2px)" }} />
+      )}
+
       {/* SIDEBAR */}
-      <div style={{ width: sidebar ? 272 : 0, height: "100vh", background: "var(--sidebar)", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", transition: "width .25s cubic-bezier(.4,0,.2,1)", overflow: "hidden", flexShrink: 0, zIndex: 10 }}>
-        <div style={{ minWidth: 272, height: "100%", display: "flex", flexDirection: "column" }}>
+      <div style={{
+        width: sidebar ? sidebarW : 0,
+        height: "100vh",
+        background: "var(--sidebar)",
+        borderRight: "1px solid var(--border)",
+        display: "flex", flexDirection: "column",
+        transition: "all .25s cubic-bezier(.4,0,.2,1)",
+        overflow: "hidden", flexShrink: 0, zIndex: 10,
+        ...(isMobile ? { position: "fixed", left: sidebar ? 0 : -sidebarW, top: 0, bottom: 0, width: sidebarW, boxShadow: sidebar ? "4px 0 30px rgba(0,0,0,.5)" : "none" } : {}),
+      }}>
+        <div style={{ minWidth: sidebarW, height: "100%", display: "flex", flexDirection: "column" }}>
           <div style={{ padding: "18px 18px 14px", display: "flex", alignItems: "center", gap: 12, borderBottom: "1px solid var(--border)" }}>
             <div style={{ width: 36, height: 36, borderRadius: 9, background: "linear-gradient(135deg,#00f5d4,#00b4d8)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--mono)", fontSize: 14, fontWeight: 800, color: "#060609", boxShadow: "0 4px 24px rgba(0,245,212,.25)" }}>TR</div>
             <div><div style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.3 }}>TraceRemove</div><div style={{ fontSize: 11, color: "var(--dim)", fontFamily: "var(--mono)", fontWeight: 500 }}>AI Platform</div></div>
-            <div style={{ marginLeft: "auto", fontSize: 10, color: "var(--dim)", background: "rgba(0,245,212,.08)", padding: "2px 8px", borderRadius: 20, fontFamily: "var(--mono)", fontWeight: 600 }}>v2.2</div>
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ fontSize: 10, color: "var(--dim)", background: "rgba(0,245,212,.08)", padding: "2px 8px", borderRadius: 20, fontFamily: "var(--mono)", fontWeight: 600 }}>v2.3</div>
+              {isMobile && <button onClick={() => setSidebar(false)} style={{ background: "none", border: "none", color: "var(--dim)", fontSize: 18, cursor: "pointer", padding: 2 }}>{"\u2715"}</button>}
+            </div>
           </div>
           <div style={{ padding: "14px 14px 6px" }}>
             <button onClick={newConversation} style={{ width: "100%", padding: "10px 14px", background: "linear-gradient(135deg,rgba(0,245,212,.1),rgba(0,180,216,.05))", border: "1px solid rgba(0,245,212,.15)", borderRadius: 9, color: "#00f5d4", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit" }}>
@@ -314,7 +302,7 @@ export default function Home() {
             ) : conversations.map(c => {
               const mo = MODES.find(m => m.id === c.mode);
               return (
-                <div key={c.id} onClick={() => loadConversation(c)} style={{ padding: "7px 10px", borderRadius: 7, cursor: "pointer", marginBottom: 1, display: "flex", alignItems: "center", gap: 8, background: activeConv === c.id ? "rgba(0,245,212,.06)" : "transparent", position: "relative" }}>
+                <div key={c.id} onClick={() => loadConversation(c)} style={{ padding: "7px 10px", borderRadius: 7, cursor: "pointer", marginBottom: 1, display: "flex", alignItems: "center", gap: 8, background: activeConv === c.id ? "rgba(0,245,212,.06)" : "transparent" }}>
                   <div style={{ fontFamily: "var(--mono)", fontSize: 9, fontWeight: 600, color: activeConv === c.id ? "#060609" : "var(--dim)", background: activeConv === c.id ? "#00f5d4" : "rgba(255,255,255,.04)", padding: "1px 5px", borderRadius: 3, textTransform: "uppercase" }}>{mo ? mo.tag : "CH"}</div>
                   <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 12, fontWeight: 500, color: activeConv === c.id ? "#00f5d4" : "var(--dim2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.title}</div></div>
                   <div style={{ fontSize: 10, color: "var(--dim)", fontFamily: "var(--mono)", flexShrink: 0 }}>{timeAgo(c.updated_at)}</div>
@@ -323,35 +311,41 @@ export default function Home() {
               );
             })}
           </div>
-          <div style={{ padding: "10px 14px", borderTop: "1px solid var(--border)" }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 6, paddingLeft: 4, fontFamily: "var(--mono)" }}>Ecosystem</div>
-            {[{ label: "API Console", tag: "API" }, { label: "Documentation", tag: "DOC" }, { label: "Marketplace", tag: "MKT" }].map((item, i) => (
-              <div key={i} style={{ padding: "6px 10px", borderRadius: 7, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, marginBottom: 1 }}>
-                <div style={{ fontFamily: "var(--mono)", fontSize: 9, fontWeight: 600, color: "var(--dim)", background: "rgba(255,255,255,.03)", padding: "1px 5px", borderRadius: 3 }}>{item.tag}</div>
-                <span style={{ fontSize: 12, color: "var(--dim)" }}>{item.label}</span>
-                <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--dim)", opacity: 0.5 }}>{"\u2197"}</span>
-              </div>
-            ))}
-          </div>
+          {!isMobile && (
+            <div style={{ padding: "10px 14px", borderTop: "1px solid var(--border)" }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 6, paddingLeft: 4, fontFamily: "var(--mono)" }}>Ecosystem</div>
+              {[{ label: "API Console", tag: "API" }, { label: "Documentation", tag: "DOC" }, { label: "Marketplace", tag: "MKT" }].map((item, i) => (
+                <div key={i} style={{ padding: "6px 10px", borderRadius: 7, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, marginBottom: 1 }}>
+                  <div style={{ fontFamily: "var(--mono)", fontSize: 9, fontWeight: 600, color: "var(--dim)", background: "rgba(255,255,255,.03)", padding: "1px 5px", borderRadius: 3 }}>{item.tag}</div>
+                  <span style={{ fontSize: 12, color: "var(--dim)" }}>{item.label}</span>
+                  <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--dim)", opacity: 0.5 }}>{"\u2197"}</span>
+                </div>
+              ))}
+            </div>
+          )}
           <div style={{ padding: "12px 14px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
             <UserButton afterSignOutUrl="/sign-in" appearance={{ elements: { avatarBox: { width: 30, height: 30 } } }} />
-            <div style={{ flex: 1 }}><div style={{ fontSize: 12, fontWeight: 600 }}>{user?.fullName || "User"}</div><div style={{ fontSize: 10, color: "var(--dim)", fontFamily: "var(--mono)" }}>{user?.primaryEmailAddress?.emailAddress || ""}</div></div>
-            <div onClick={() => setSettingsOpen(!settingsOpen)} style={{ cursor: "pointer", color: "var(--dim)", fontSize: 14, padding: 4, borderRadius: 6 }}>{"\u2699"}</div>
+            <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user?.fullName || "User"}</div><div style={{ fontSize: 10, color: "var(--dim)", fontFamily: "var(--mono)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user?.primaryEmailAddress?.emailAddress || ""}</div></div>
+            {!isMobile && <div onClick={() => setSettingsOpen(!settingsOpen)} style={{ cursor: "pointer", color: "var(--dim)", fontSize: 14, padding: 4, borderRadius: 6 }}>{"\u2699"}</div>}
           </div>
         </div>
       </div>
+
       {/* MAIN */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <div style={{ height: 52, padding: "0 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 14, background: "var(--bg2)", flexShrink: 0 }}>
+        {/* TOP BAR */}
+        <div style={{ height: isMobile ? 48 : 52, padding: isMobile ? "0 12px" : "0 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: isMobile ? 8 : 14, background: "var(--bg2)", flexShrink: 0 }}>
           <button onClick={() => setSidebar(!sidebar)} style={{ background: "none", border: "none", color: "var(--dim)", fontSize: 18, cursor: "pointer", padding: "4px 6px", borderRadius: 5 }}>{"\u2630"}</button>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
-            <div style={{ fontFamily: "var(--mono)", fontSize: 10, fontWeight: 700, color: "#060609", background: "#00f5d4", padding: "2px 7px", borderRadius: 4, letterSpacing: 0.5, textTransform: "uppercase" }}>{currentMode.tag}</div>
-            <span style={{ fontSize: 15, fontWeight: 700 }}>{currentMode.label}</span>
-            <span style={{ fontSize: 11, color: "var(--dim)", fontWeight: 500 }}>{currentMode.desc}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 10, flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: "var(--mono)", fontSize: 10, fontWeight: 700, color: "#060609", background: "#00f5d4", padding: "2px 7px", borderRadius: 4, letterSpacing: 0.5, textTransform: "uppercase", flexShrink: 0 }}>{currentMode.tag}</div>
+            <span style={{ fontSize: isMobile ? 14 : 15, fontWeight: 700 }}>{currentMode.label}</span>
+            {!isMobile && <span style={{ fontSize: 11, color: "var(--dim)", fontWeight: 500 }}>{currentMode.desc}</span>}
           </div>
           <div style={{ position: "relative" }}>
-            <button onClick={() => setModelDrop(!modelDrop)} style={{ background: "rgba(255,255,255,.03)", border: "1px solid var(--border)", borderRadius: 8, padding: "5px 12px", color: "var(--fg)", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 7, fontFamily: "inherit" }}>
-              <span style={{ color: model.color, fontSize: 14 }}>{model.icon}</span>{model.name}<span style={{ color: "var(--dim)", fontSize: 8 }}>{"\u25BC"}</span>
+            <button onClick={() => setModelDrop(!modelDrop)} style={{ background: "rgba(255,255,255,.03)", border: "1px solid var(--border)", borderRadius: 8, padding: isMobile ? "4px 8px" : "5px 12px", color: "var(--fg)", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: isMobile ? 4 : 7, fontFamily: "inherit" }}>
+              <span style={{ color: model.color, fontSize: 14 }}>{model.icon}</span>
+              {isMobile ? "" : model.name}
+              <span style={{ color: "var(--dim)", fontSize: 8 }}>{"\u25BC"}</span>
             </button>
             {modelDrop && (
               <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 11, padding: 5, minWidth: 220, boxShadow: "0 20px 60px rgba(0,0,0,.5)", zIndex: 100, animation: "slideUp .15s ease" }}>
@@ -365,46 +359,51 @@ export default function Home() {
               </div>
             )}
           </div>
-          <div style={{ width: 1, height: 20, background: "var(--border)" }} />
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 8px rgba(34,197,94,.4)" }} />
-            <span style={{ fontSize: 11, color: "var(--dim)", fontFamily: "var(--mono)" }}>Online</span>
-          </div>
+          {!isMobile && <>
+            <div style={{ width: 1, height: 20, background: "var(--border)" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 8px rgba(34,197,94,.4)" }} />
+              <span style={{ fontSize: 11, color: "var(--dim)", fontFamily: "var(--mono)" }}>Online</span>
+            </div>
+          </>}
         </div>
+
         {mode === "agents" && (
-          <div style={{ padding: "14px 22px", borderBottom: "1px solid var(--border)", background: "var(--bg2)", animation: "slideUp .25s ease" }}>
+          <div style={{ padding: isMobile ? "10px 12px" : "14px 22px", borderBottom: "1px solid var(--border)", background: "var(--bg2)", animation: "slideUp .25s ease" }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10, fontFamily: "var(--mono)" }}>Select agents</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(190px,1fr))", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fill,minmax(190px,1fr))", gap: 8 }}>
               {AGENTS.map(a => { const on = agents.includes(a.id); return (
-                <div key={a.id} onClick={() => setAgents(p => p.includes(a.id) ? p.filter(x => x !== a.id) : [...p, a.id])} style={{ background: on ? "rgba(0,245,212,.06)" : "rgba(255,255,255,.015)", border: "1px solid " + (on ? "rgba(0,245,212,.25)" : "rgba(255,255,255,.05)"), borderRadius: 12, padding: "14px 16px", cursor: "pointer", position: "relative", overflow: "hidden" }}>
+                <div key={a.id} onClick={() => setAgents(p => p.includes(a.id) ? p.filter(x => x !== a.id) : [...p, a.id])} style={{ background: on ? "rgba(0,245,212,.06)" : "rgba(255,255,255,.015)", border: "1px solid " + (on ? "rgba(0,245,212,.25)" : "rgba(255,255,255,.05)"), borderRadius: 12, padding: isMobile ? "10px 12px" : "14px 16px", cursor: "pointer", position: "relative", overflow: "hidden" }}>
                   {on && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,transparent,#00f5d4,transparent)" }} />}
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                    <div style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 700, color: on ? "#060609" : "var(--dim)", background: on ? "#00f5d4" : "rgba(255,255,255,.06)", padding: "2px 7px", borderRadius: 4 }}>{a.tag}</div>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: on ? "var(--fg)" : "var(--dim2)" }}>{a.name}</span>
-                    <div style={{ marginLeft: "auto", width: 7, height: 7, borderRadius: "50%", background: on ? "#00f5d4" : "#333", boxShadow: on ? "0 0 10px #00f5d4" : "none" }} />
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <div style={{ fontFamily: "var(--mono)", fontSize: 10, fontWeight: 700, color: on ? "#060609" : "var(--dim)", background: on ? "#00f5d4" : "rgba(255,255,255,.06)", padding: "2px 6px", borderRadius: 4 }}>{a.tag}</div>
+                    <span style={{ fontSize: isMobile ? 12 : 14, fontWeight: 700, color: on ? "var(--fg)" : "var(--dim2)" }}>{a.name}</span>
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--dim)", lineHeight: 1.45 }}>{a.desc}</div>
+                  {!isMobile && <div style={{ fontSize: 12, color: "var(--dim)", lineHeight: 1.45 }}>{a.desc}</div>}
                 </div>
               ); })}
             </div>
           </div>
         )}
+
         {mode === "generate" && (
-          <div style={{ padding: "10px 22px", borderBottom: "1px solid var(--border)", background: "var(--bg2)", display: "flex", gap: 6, animation: "slideUp .25s ease" }}>
+          <div style={{ padding: isMobile ? "8px 12px" : "10px 22px", borderBottom: "1px solid var(--border)", background: "var(--bg2)", display: "flex", gap: 6, animation: "slideUp .25s ease", overflowX: "auto" }}>
             {["text", "image", "audio", "video"].map(t => (
-              <button key={t} onClick={() => setGenType(t)} style={{ padding: "6px 14px", borderRadius: 20, background: genType === t ? "rgba(0,245,212,.1)" : "transparent", border: "1px solid " + (genType === t ? "rgba(0,245,212,.25)" : "var(--border)"), color: genType === t ? "#00f5d4" : "var(--dim)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textTransform: "capitalize" }}>{t}</button>
+              <button key={t} onClick={() => setGenType(t)} style={{ padding: "6px 14px", borderRadius: 20, background: genType === t ? "rgba(0,245,212,.1)" : "transparent", border: "1px solid " + (genType === t ? "rgba(0,245,212,.25)" : "var(--border)"), color: genType === t ? "#00f5d4" : "var(--dim)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textTransform: "capitalize", whiteSpace: "nowrap" }}>{t}</button>
             ))}
           </div>
         )}
-        <div style={{ flex: 1, overflow: "auto", padding: "24px 20px" }}>
+
+        {/* CHAT AREA */}
+        <div style={{ flex: 1, overflow: "auto", padding: isMobile ? "16px 12px" : "24px 20px" }}>
           {messages.length === 0 ? (
-            <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", animation: "fadeIn .5s ease" }}>
-              <div style={{ width: 64, height: 64, borderRadius: 16, background: "linear-gradient(135deg,#00f5d4,#00b4d8)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--mono)", fontSize: 22, fontWeight: 800, color: "#060609", marginBottom: 24, boxShadow: "0 8px 40px rgba(0,245,212,.15)", animation: "glowPulse 4s ease infinite" }}>TR</div>
-              <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 6, letterSpacing: -1 }}>What can I help with?</div>
-              <div style={{ fontSize: 14, color: "var(--dim)", marginBottom: 36, textAlign: "center", maxWidth: 420, lineHeight: 1.6 }}>Chat, search, generate, code, or deploy autonomous agents.</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, maxWidth: 520, width: "100%" }}>
+            <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", animation: "fadeIn .5s ease", padding: isMobile ? "0 8px" : 0 }}>
+              <div style={{ width: isMobile ? 52 : 64, height: isMobile ? 52 : 64, borderRadius: 16, background: "linear-gradient(135deg,#00f5d4,#00b4d8)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--mono)", fontSize: isMobile ? 18 : 22, fontWeight: 800, color: "#060609", marginBottom: 20, boxShadow: "0 8px 40px rgba(0,245,212,.15)", animation: "glowPulse 4s ease infinite" }}>TR</div>
+              <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, marginBottom: 6, letterSpacing: -1, textAlign: "center" }}>What can I help with?</div>
+              <div style={{ fontSize: isMobile ? 13 : 14, color: "var(--dim)", marginBottom: isMobile ? 24 : 36, textAlign: "center", maxWidth: 420, lineHeight: 1.6 }}>Chat, search, generate, code, or deploy autonomous agents.</div>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10, maxWidth: 520, width: "100%" }}>
                 {QUICK.map((q, i) => (
-                  <button key={i} onClick={() => setInput(q.text)} style={{ padding: "14px 16px", borderRadius: 11, background: "rgba(255,255,255,.02)", border: "1px solid var(--border)", color: "var(--fg)", textAlign: "left", cursor: "pointer", fontFamily: "inherit" }}>
+                  <button key={i} onClick={() => setInput(q.text)} style={{ padding: isMobile ? "12px 14px" : "14px 16px", borderRadius: 11, background: "rgba(255,255,255,.02)", border: "1px solid var(--border)", color: "var(--fg)", textAlign: "left", cursor: "pointer", fontFamily: "inherit" }}>
                     <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 3 }}>{q.text}</div>
                     <div style={{ fontSize: 11, color: "var(--dim)" }}>{q.sub}</div>
                   </button>
@@ -413,10 +412,10 @@ export default function Home() {
             </div>
           ) : (
             <div style={{ maxWidth: 780, margin: "0 auto" }}>
-              {messages.map((msg, i) => <MsgBubble key={i} msg={msg} streaming={streaming && i === messages.length - 1 && msg.role === "ai"} />)}
+              {messages.map((msg, i) => <MsgBubble key={i} msg={msg} streaming={streaming && i === messages.length - 1 && msg.role === "ai"} isMobile={isMobile} />)}
               {loading && (
                 <div style={{ display: "flex", gap: 14, animation: "slideUp .3s ease", marginBottom: 6 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, background: "linear-gradient(135deg,#00f5d4,#00b4d8)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--mono)", fontSize: 13, fontWeight: 800, color: "#060609" }}>TR</div>
+                  <div style={{ width: isMobile ? 28 : 32, height: isMobile ? 28 : 32, borderRadius: 9, flexShrink: 0, background: "linear-gradient(135deg,#00f5d4,#00b4d8)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--mono)", fontSize: isMobile ? 11 : 13, fontWeight: 800, color: "#060609" }}>TR</div>
                   <div style={{ padding: "14px 18px", background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.04)", borderRadius: "16px 16px 16px 4px" }}><Spinner /></div>
                 </div>
               )}
@@ -424,23 +423,27 @@ export default function Home() {
             </div>
           )}
         </div>
-        <div style={{ padding: "14px 20px 18px", borderTop: "1px solid var(--border)", background: "var(--bg2)" }}>
+
+        {/* INPUT */}
+        <div style={{ padding: isMobile ? "10px 12px 14px" : "14px 20px 18px", borderTop: "1px solid var(--border)", background: "var(--bg2)" }}>
           <div style={{ maxWidth: 780, margin: "0 auto", background: "rgba(255,255,255,.02)", border: "1px solid var(--border)", borderRadius: 14, padding: "4px 4px 4px 14px", display: "flex", alignItems: "flex-end", gap: 6 }} onClick={() => inputRef.current?.focus()}>
-            <button style={{ background: "none", border: "none", color: "var(--dim)", fontSize: 16, cursor: "pointer", padding: "8px 2px" }}>+</button>
-            <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder={mode === "search" ? "Search anything..." : mode === "generate" ? "Describe what to generate..." : mode === "agents" ? "Describe the task..." : mode === "code" ? "Describe the code..." : "Message TraceRemove..."} rows={1} style={{ flex: 1, background: "none", border: "none", color: "var(--fg)", fontSize: 14, resize: "none", padding: "9px 0", lineHeight: 1.5, maxHeight: 120, outline: "none", fontFamily: "inherit" }} />
+            <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !isMobile) { e.preventDefault(); send(); } }} placeholder={mode === "search" ? "Search anything..." : mode === "generate" ? "Describe what to generate..." : mode === "agents" ? "Describe the task..." : mode === "code" ? "Describe the code..." : "Message TraceRemove..."} rows={1} style={{ flex: 1, background: "none", border: "none", color: "var(--fg)", fontSize: 14, resize: "none", padding: "9px 0", lineHeight: 1.5, maxHeight: 120, outline: "none", fontFamily: "inherit" }} />
             <button style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: input.trim() ? "linear-gradient(135deg,#00f5d4,#00b4d8)" : "rgba(255,255,255,.04)", border: "none", cursor: input.trim() ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: input.trim() ? "#060609" : "var(--dim)", fontWeight: 700, transition: "all .2s" }} onClick={send}>{"\u2191"}</button>
           </div>
-          <div style={{ maxWidth: 780, margin: "6px auto 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
-            <span style={{ fontSize: 10, color: "var(--dim)", fontFamily: "var(--mono)" }}>{model.icon} {model.name}</span>
-            <span style={{ fontSize: 10, color: "rgba(255,255,255,.08)" }}>{"\u00B7"}</span>
-            <span style={{ fontSize: 10, color: "var(--dim)", fontFamily: "var(--mono)" }}>{currentMode.label}</span>
-            <span style={{ fontSize: 10, color: "rgba(255,255,255,.08)" }}>{"\u00B7"}</span>
-            <span style={{ fontSize: 10, color: "var(--dim)", fontFamily: "var(--mono)" }}>Shift+Enter for newline</span>
-          </div>
+          {!isMobile && (
+            <div style={{ maxWidth: 780, margin: "6px auto 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
+              <span style={{ fontSize: 10, color: "var(--dim)", fontFamily: "var(--mono)" }}>{model.icon} {model.name}</span>
+              <span style={{ fontSize: 10, color: "rgba(255,255,255,.08)" }}>{"\u00B7"}</span>
+              <span style={{ fontSize: 10, color: "var(--dim)", fontFamily: "var(--mono)" }}>{currentMode.label}</span>
+              <span style={{ fontSize: 10, color: "rgba(255,255,255,.08)" }}>{"\u00B7"}</span>
+              <span style={{ fontSize: 10, color: "var(--dim)", fontFamily: "var(--mono)" }}>Shift+Enter for newline</span>
+            </div>
+          )}
         </div>
       </div>
+
       {/* SETTINGS */}
-      {settingsOpen && (
+      {settingsOpen && !isMobile && (
         <>
           <div onClick={() => setSettingsOpen(false)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.4)", zIndex: 40 }} />
           <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 320, background: "var(--bg3)", borderLeft: "1px solid var(--border)", padding: 22, zIndex: 50, overflow: "auto", animation: "slideUp .2s ease" }}>
