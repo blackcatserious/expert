@@ -153,6 +153,9 @@ export default function Home() {
   const [conversations, setConversations] = useState<Conv[]>([]);
   const [activeConv, setActiveConv] = useState<string | null>(null);
   const [loadingConvs, setLoadingConvs] = useState(true);
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareResults, setCompareResults] = useState<{claude?: {text?: string; error?: string; model?: string; icon?: string; color?: string}; gpt?: {text?: string; error?: string; model?: string; icon?: string; color?: string}} | null>(null);
+  const [compareLoading, setCompareLoading] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -197,7 +200,25 @@ export default function Home() {
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading, streaming]);
 
+  const sendCompare = useCallback(async () => {
+    if (!input.trim() || compareLoading) return;
+    const q = input.trim();
+    setMessages(prev => [...prev, { role: 'user', content: q }]);
+    setInput(''); setCompareLoading(true); setCompareResults(null);
+    try {
+      const res = await fetch('/api/compare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [{ role: 'user', content: q }], mode }),
+      });
+      const data = await res.json();
+      setCompareResults(data);
+    } catch { setCompareResults({ claude: { error: 'Failed' }, gpt: { error: 'Failed' } }); }
+    setCompareLoading(false);
+  }, [input, compareLoading, mode]);
+
   const send = useCallback(async () => {
+    if (compareMode) { sendCompare(); return; }
     if (!input.trim() || loading) return;
     const q = input.trim();
     const userMsg: Msg = { role: "user", content: q };
@@ -245,7 +266,7 @@ export default function Home() {
       setMessages(prev => [...prev, { role: "ai", content: "Connection error. Please try again.", error: true }]);
       setLoading(false); setStreaming(false);
     }
-  }, [input, loading, messages, model.id, mode, activeConv]);
+  }, [input, loading, messages, model.id, mode, activeConv, compareMode, sendCompare]);
 
   const currentMode = MODES.find(m => m.id === mode) || MODES[0];
   const sidebarW = isMobile ? 280 : 272;
@@ -360,7 +381,8 @@ export default function Home() {
             )}
           </div>
           {!isMobile && <>
-            <div style={{ width: 1, height: 20, background: "var(--border)" }} />
+            {!isMobile && <button onClick={() => { setCompareMode(!compareMode); setCompareResults(null); }} style={{ background: compareMode ? 'rgba(192,132,252,.15)' : 'rgba(255,255,255,.03)', border: '1px solid ' + (compareMode ? 'rgba(192,132,252,.3)' : 'var(--border)'), borderRadius: 8, padding: '5px 12px', color: compareMode ? '#c084fc' : 'var(--dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 5 }}>↔ Compare</button>}
+          <div style={{ width: 1, height: 20, background: "var(--border)" }} />
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 8px rgba(34,197,94,.4)" }} />
               <span style={{ fontSize: 11, color: "var(--dim)", fontFamily: "var(--mono)" }}>Online</span>
@@ -419,7 +441,31 @@ export default function Home() {
                   <div style={{ padding: "14px 18px", background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.04)", borderRadius: "16px 16px 16px 4px" }}><Spinner /></div>
                 </div>
               )}
-              <div ref={endRef} />
+              {compareMode && compareResults && (
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, margin: '16px 0', animation: 'slideUp .3s ease' }}>
+                {[compareResults.claude, compareResults.gpt].map((r, i) => (
+                  <div key={i} style={{ background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.06)', borderRadius: 14, overflow: 'hidden' }}>
+                    <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,.06)', display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,.02)' }}>
+                      <span style={{ fontSize: 16, color: r?.color || '#888' }}>{r?.icon || '?'}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{r?.model || (i === 0 ? 'Claude' : 'GPT-4o')}</span>
+                    </div>
+                    <div style={{ padding: '14px 16px', fontSize: 14, lineHeight: 1.75, maxHeight: 500, overflow: 'auto' }}>
+                      {r?.error ? <span style={{ color: '#fca5a5' }}>{r.error}</span> : r?.text ? <MarkdownContent content={r.text} /> : 'No response'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {compareMode && compareLoading && (
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, margin: '16px 0' }}>
+                {[0, 1].map(i => (
+                  <div key={i} style={{ background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.06)', borderRadius: 14, padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Spinner />
+                  </div>
+                ))}
+              </div>
+            )}
+            <div ref={endRef} />
             </div>
           )}
         </div>
