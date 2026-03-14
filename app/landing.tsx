@@ -1,510 +1,140 @@
 "use client";
+import { useState, useEffect } from "react";
 
-import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
+export default function Landing({ onEnter }: { onEnter: () => void }) {
+  const [v, setV] = useState(false);
+  const [sy, setSy] = useState(0);
+  useEffect(() => { setV(true); const h = () => setSy(window.scrollY); window.addEventListener("scroll", h); return () => window.removeEventListener("scroll", h); }, []);
 
-const FEATURES = [
-  {
-    icon: "⬡",
-    title: "Multi-Model AI",
-    desc: "Switch between Claude Sonnet and GPT-4o in a single conversation. Pick the right brain for the job.",
-    accent: "#6366f1",
-  },
-  {
-    icon: "⚡",
-    title: "Real-Time Streaming",
-    desc: "Watch AI think in real time. No waiting for full responses — words appear as they're generated.",
-    accent: "#f59e0b",
-  },
-  {
-    icon: "◈",
-    title: "Web Search",
-    desc: "Search the live web with AI reasoning. Get answers grounded in current information, not stale training data.",
-    accent: "#10b981",
-  },
-  {
-    icon: "⊟",
-    title: "Side-by-Side Compare",
-    desc: "Run the same prompt against multiple models simultaneously. See exactly how they differ.",
-    accent: "#3b82f6",
-  },
-  {
-    icon: "◐",
-    title: "5 Powerful Modes",
-    desc: "Chat, Search, Generate, Agent, Code — each mode is purpose-built for a different kind of work.",
-    accent: "#ec4899",
-  },
-  {
-    icon: "◉",
-    title: "Persistent Memory",
-    desc: "Your conversations are saved and searchable. Context carries forward. Nothing gets lost.",
-    accent: "#8b5cf6",
-  },
-];
+  const F = [
+    { i: "\u25C6", t: "Multi-Model AI", d: "Claude, GPT-4o and more. Switch instantly or compare side by side.", c: "#00f5d4" },
+    { i: "\u26A1", t: "Real-Time Streaming", d: "Watch AI think in real-time with blazing fast responses.", c: "#fbbf24" },
+    { i: "\u2726", t: "Web Search", d: "AI-powered search with verified sources. Like Perplexity, but better.", c: "#c084fc" },
+    { i: "\u25CE", t: "Compare Models", d: "The feature nobody else has. Claude vs GPT-4o, side by side.", c: "#f472b6" },
+    { i: "\u2261", t: "5 Powerful Modes", d: "Chat, Search, Generate, Agents, Code. One platform for everything.", c: "#60a5fa" },
+    { i: "\u2194", t: "Persistent Memory", d: "Conversations saved and searchable. Pick up where you left off.", c: "#34d399" },
+  ];
 
-const PRICING = [
-  {
-    name: "Free",
-    price: "0",
-    period: "forever",
-    description: "Try TraceRemove AI at no cost.",
-    features: [
-      "15 messages per day",
-      "Access to TR Fast model",
-      "Web Search mode",
-      "Conversation history (7 days)",
-    ],
-    cta: "Start free",
-    href: "/sign-up",
-    featured: false,
-  },
-  {
-    name: "Pro",
-    price: "20",
-    period: "month",
-    description: "Everything you need for serious AI work.",
-    features: [
-      "Unlimited messages",
-      "All 4 AI models",
-      "All 5 modes including Agent",
-      "Side-by-Side Compare",
-      "Persistent memory",
-      "Priority response speed",
-    ],
-    cta: "Get Pro",
-    href: "/sign-up?plan=pro",
-    featured: true,
-  },
-];
+  const P = [
+    { n: "Free", p: "$0", s: "/forever", f: ["15 messages/day", "All AI models", "Web search", "Compare mode"], cta: "Get Started", pop: false },
+    { n: "Pro", p: "$20", s: "/month", f: ["Unlimited messages", "Priority speed", "Advanced agents", "API access", "File uploads"], cta: "Start Pro Trial", pop: true },
+    { n: "Team", p: "$25", s: "/seat/mo", f: ["Everything in Pro", "Shared workspaces", "Admin dashboard", "SSO & RBAC", "Priority support"], cta: "Contact Sales", pop: false },
+  ];
 
-const MODES = ["Chat", "Search", "Generate", "Agent", "Code"];
-
-function AnimatedCounter({ value, suffix = "" }: { value: number; suffix?: string }) {
-  const [count, setCount] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          let start = 0;
-          const duration = 1200;
-          const step = (timestamp: number, startTime: number) => {
-            const progress = Math.min((timestamp - startTime) / duration, 1);
-            const eased = 1 - Math.pow(1 - progress, 3);
-            setCount(Math.floor(eased * value));
-            if (progress < 1) requestAnimationFrame((t) => step(t, startTime));
-          };
-          requestAnimationFrame((t) => step(t, t));
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.5 }
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [value]);
+  const st = { transition: "all .8s cubic-bezier(.16,1,.3,1)", opacity: v ? 1 : 0, transform: v ? "none" : "translateY(30px)" };
 
   return (
-    <span ref={ref}>
-      {count.toLocaleString()}
-      {suffix}
-    </span>
-  );
-}
+    <div style={{ background: "#050508", color: "#e4e4ed", fontFamily: "Outfit, system-ui, sans-serif", minHeight: "100vh", overflowX: "hidden" }}>
+      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
 
-export default function Landing() {
-  const [activeMode, setActiveMode] = useState(0);
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 40);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveMode((prev) => (prev + 1) % MODES.length);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="min-h-screen bg-[#080808] text-white overflow-x-hidden">
-      {/* Ambient background */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-[-20%] left-[10%] w-[600px] h-[600px] rounded-full bg-indigo-600/10 blur-[120px]" />
-        <div className="absolute top-[30%] right-[-5%] w-[500px] h-[500px] rounded-full bg-violet-600/8 blur-[100px]" />
-        <div className="absolute bottom-[10%] left-[30%] w-[400px] h-[400px] rounded-full bg-blue-600/8 blur-[100px]" />
-      </div>
-
-      {/* Nav */}
-      <nav
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          scrolled
-            ? "bg-[#080808]/90 backdrop-blur-xl border-b border-white/5"
-            : "bg-transparent"
-        }`}
-      >
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-xs font-bold">
-              TR
-            </div>
-            <span className="font-semibold text-[15px] tracking-tight">
-              TraceRemove<span className="text-indigo-400"> AI</span>
-            </span>
-          </div>
-          <div className="hidden md:flex items-center gap-8 text-sm text-white/50">
-            <a href="#features" className="hover:text-white transition-colors">
-              Features
-            </a>
-            <a href="#modes" className="hover:text-white transition-colors">
-              Modes
-            </a>
-            <a href="#pricing" className="hover:text-white transition-colors">
-              Pricing
-            </a>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/sign-in"
-              className="text-sm text-white/60 hover:text-white transition-colors"
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/sign-up"
-              className="text-sm px-4 py-1.5 rounded-full bg-white text-black font-medium hover:bg-white/90 transition-colors"
-            >
-              Get started
-            </Link>
-          </div>
+      <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", background: sy > 50 ? "rgba(5,5,8,.9)" : "transparent", backdropFilter: sy > 50 ? "blur(20px)" : "none", borderBottom: sy > 50 ? "1px solid rgba(255,255,255,.05)" : "none", transition: "all .3s" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg,#00f5d4,#00b4d8)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 800, color: "#050508" }}>TR</div>
+          <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: -0.5 }}>TraceRemove<span style={{ color: "#00f5d4" }}>AI</span></span>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onEnter} style={{ padding: "7px 18px", borderRadius: 7, background: "transparent", border: "1px solid rgba(255,255,255,.12)", color: "#e4e4ed", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Sign In</button>
+          <button onClick={onEnter} style={{ padding: "7px 18px", borderRadius: 7, background: "linear-gradient(135deg,#00f5d4,#00b4d8)", border: "none", color: "#050508", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Get Started</button>
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="relative pt-40 pb-32 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-xs font-medium mb-8">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-            Claude Sonnet · GPT-4o · Live now
-          </div>
-
-          <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.05] mb-6">
-            AI that thinks
-            <br />
-            <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-blue-400 bg-clip-text text-transparent">
-              in{" "}
-              <span
-                key={activeMode}
-                className="inline-block animate-[fadeIn_0.3s_ease]"
-              >
-                {MODES[activeMode]}
-              </span>{" "}
-              mode
-            </span>
-          </h1>
-
-          <p className="text-xl text-white/50 max-w-xl mx-auto mb-10 leading-relaxed">
-            One platform. Multiple frontier models. Five modes built for every
-            kind of AI work — from quick questions to autonomous agents.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link
-              href="/sign-up"
-              className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-indigo-600 hover:bg-indigo-500 transition-colors font-medium text-sm"
-            >
-              Start for free
-            </Link>
-            <Link
-              href="/sign-in"
-              className="w-full sm:w-auto px-8 py-3.5 rounded-full border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all font-medium text-sm text-white/70"
-            >
-              Sign in →
-            </Link>
-          </div>
-
-          {/* Stats */}
-          <div className="mt-20 grid grid-cols-3 gap-8 max-w-lg mx-auto">
-            {[
-              { value: 4, suffix: " models", label: "AI models" },
-              { value: 5, suffix: " modes", label: "Work modes" },
-              { value: 0, suffix: "$ free", label: "To start" },
-            ].map((stat) => (
-              <div key={stat.label} className="text-center">
-                <p className="text-2xl font-bold text-white">
-                  <AnimatedCounter value={stat.value} suffix={stat.suffix} />
-                </p>
-                <p className="text-xs text-white/30 mt-1">{stat.label}</p>
-              </div>
-            ))}
-          </div>
+      <section style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "120px 20px 80px", position: "relative" }}>
+        <div style={{ position: "absolute", top: "15%", left: "50%", transform: "translate(-50%,-50%)", width: 700, height: 700, borderRadius: "50%", background: "radial-gradient(circle,rgba(0,245,212,.06) 0%,transparent 60%)", pointerEvents: "none" }} />
+        <div style={{ ...st, transitionDelay: "0s", marginBottom: 16 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 14px", borderRadius: 100, background: "rgba(0,245,212,.07)", border: "1px solid rgba(0,245,212,.12)", fontSize: 12, fontWeight: 600, color: "#00f5d4", fontFamily: "JetBrains Mono" }}>{"\u2022"} Now in public beta</span>
         </div>
-      </section>
-
-      {/* Modes bar */}
-      <section id="modes" className="py-16 px-6 border-y border-white/5">
-        <div className="max-w-6xl mx-auto">
-          <p className="text-center text-xs text-white/30 uppercase tracking-widest mb-8">
-            Five modes, one platform
-          </p>
-          <div className="grid grid-cols-5 gap-2">
-            {MODES.map((mode, i) => (
-              <button
-                key={mode}
-                onClick={() => setActiveMode(i)}
-                className={`py-3 rounded-xl text-sm font-medium transition-all ${
-                  activeMode === i
-                    ? "bg-indigo-600 text-white"
-                    : "bg-white/5 text-white/40 hover:bg-white/8 hover:text-white/60"
-                }`}
-              >
-                {mode}
-              </button>
-            ))}
-          </div>
-          <div className="mt-6 p-5 rounded-2xl bg-white/3 border border-white/5 min-h-[80px] flex items-center">
-            <p className="text-sm text-white/50 leading-relaxed">
-              {activeMode === 0 &&
-                "Natural conversation with frontier AI. Ask questions, get explanations, brainstorm ideas — the classic AI experience, done right."}
-              {activeMode === 1 &&
-                "Search the live web with AI reasoning. Get answers grounded in current information, not stale training data from months ago."}
-              {activeMode === 2 &&
-                "Generate images, documents, and content with AI. Describe what you want and watch it come to life in seconds."}
-              {activeMode === 3 &&
-                "Autonomous AI agents that can browse, code, and execute multi-step tasks. Set a goal and let the AI figure out how to get there."}
-              {activeMode === 4 &&
-                "Write, review, and debug code with dedicated AI support. Syntax highlighting, error detection, and multi-language support built in."}
-            </p>
-          </div>
+        <h1 style={{ ...st, transitionDelay: ".1s", fontSize: "clamp(32px,7vw,72px)", fontWeight: 900, letterSpacing: "-0.03em", lineHeight: 1.05, maxWidth: 800, margin: "0 0 20px" }}>The AI Platform<br /><span style={{ background: "linear-gradient(135deg,#00f5d4,#00b4d8 50%,#c084fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>That Does Everything</span></h1>
+        <p style={{ ...st, transitionDelay: ".2s", fontSize: "clamp(15px,2vw,19px)", color: "#8888a0", maxWidth: 540, lineHeight: 1.7, margin: "0 0 36px" }}>Chat with Claude & GPT-4o. Search the web. Compare models side by side. Generate content. Deploy agents. All in one beautiful interface.</p>
+        <div style={{ ...st, transitionDelay: ".3s", display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+          <button onClick={onEnter} style={{ padding: "13px 28px", borderRadius: 9, background: "linear-gradient(135deg,#00f5d4,#00b4d8)", border: "none", color: "#050508", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 6px 30px rgba(0,245,212,.2)" }}>Start Free — No Card Required</button>
         </div>
-      </section>
-
-      {/* Features */}
-      <section id="features" className="py-28 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Everything you need
-            </h2>
-            <p className="text-white/40 max-w-md mx-auto">
-              Built for people who take AI seriously. Every feature designed to
-              remove friction, not add it.
-            </p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-4">
-            {FEATURES.map((feature) => (
-              <div
-                key={feature.title}
-                className="group p-6 rounded-2xl bg-white/3 border border-white/5 hover:border-white/10 hover:bg-white/5 transition-all duration-300"
-              >
-                <div
-                  className="text-2xl mb-4"
-                  style={{ color: feature.accent }}
-                >
-                  {feature.icon}
-                </div>
-                <h3 className="font-semibold text-[15px] mb-2">
-                  {feature.title}
-                </h3>
-                <p className="text-sm text-white/40 leading-relaxed">
-                  {feature.desc}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Model comparison */}
-      <section className="py-20 px-6 border-y border-white/5">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-center text-xs text-white/30 uppercase tracking-widest mb-10">
-            Your models
-          </p>
-          <div className="grid md:grid-cols-2 gap-4">
-            {[
-              {
-                id: "TR Ultra",
-                base: "Claude Sonnet",
-                tag: "Most capable",
-                color: "#6366f1",
-                desc: "Deep reasoning, nuanced writing, complex analysis",
-              },
-              {
-                id: "TR Fast",
-                base: "GPT-4o",
-                tag: "Fastest",
-                color: "#10b981",
-                desc: "Rapid responses, great for quick tasks and iteration",
-              },
-              {
-                id: "TR Creative",
-                base: "Claude Sonnet",
-                tag: "Creative",
-                color: "#ec4899",
-                desc: "Optimized for creative writing and imaginative output",
-              },
-              {
-                id: "TR Agent",
-                base: "GPT-4o",
-                tag: "Autonomous",
-                color: "#f59e0b",
-                desc: "Tool use, browsing, and multi-step task execution",
-              },
-            ].map((model) => (
-              <div
-                key={model.id}
-                className="p-5 rounded-2xl bg-white/3 border border-white/5"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <p
-                      className="font-semibold text-[15px]"
-                      style={{ color: model.color }}
-                    >
-                      {model.id}
-                    </p>
-                    <p className="text-xs text-white/30">{model.base}</p>
-                  </div>
-                  <span
-                    className="text-xs px-2 py-0.5 rounded-full"
-                    style={{
-                      background: model.color + "18",
-                      color: model.color,
-                    }}
-                  >
-                    {model.tag}
-                  </span>
-                </div>
-                <p className="text-sm text-white/40">{model.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing */}
-      <section id="pricing" className="py-28 px-6">
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Simple pricing
-            </h2>
-            <p className="text-white/40">
-              Start free. Upgrade when you need more.
-            </p>
-          </div>
-          <div className="grid md:grid-cols-2 gap-4">
-            {PRICING.map((plan) => (
-              <div
-                key={plan.name}
-                className={`p-7 rounded-2xl border transition-all ${
-                  plan.featured
-                    ? "bg-indigo-600/10 border-indigo-500/30"
-                    : "bg-white/3 border-white/5"
-                }`}
-              >
-                {plan.featured && (
-                  <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 mb-4">
-                    Most popular
-                  </span>
-                )}
-                <h3 className="font-bold text-xl mb-1">{plan.name}</h3>
-                <div className="flex items-baseline gap-1 mb-2">
-                  <span className="text-4xl font-bold">${plan.price}</span>
-                  <span className="text-white/40 text-sm">/{plan.period}</span>
-                </div>
-                <p className="text-sm text-white/40 mb-6">{plan.description}</p>
-                <ul className="space-y-3 mb-8">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-sm">
-                      <span className="text-indigo-400 text-xs">✓</span>
-                      <span className="text-white/70">{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  href={plan.href}
-                  className={`block w-full text-center py-3 rounded-xl font-medium text-sm transition-all ${
-                    plan.featured
-                      ? "bg-indigo-600 hover:bg-indigo-500 text-white"
-                      : "bg-white/8 hover:bg-white/12 text-white/80"
-                  }`}
-                >
-                  {plan.cta}
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="py-28 px-6">
-        <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">
-            Ready to think
-            <br />
-            <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">
-              without limits?
-            </span>
-          </h2>
-          <p className="text-white/40 mb-10">
-            Join thousands using TraceRemove AI to do their best work.
-          </p>
-          <Link
-            href="/sign-up"
-            className="inline-flex items-center gap-2 px-10 py-4 rounded-full bg-white text-black font-semibold hover:bg-white/90 transition-colors"
-          >
-            Get started free →
-          </Link>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="py-8 px-6 border-t border-white/5">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-[9px] font-bold">
-              TR
+        <div style={{ ...st, transitionDelay: ".5s", display: "flex", gap: 32, marginTop: 60, flexWrap: "wrap", justifyContent: "center" }}>
+          {[["4","Models"],["5","Modes"],["<1s","Latency"],["99.9%","Uptime"]].map(([v,l],i) => (
+            <div key={i} style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 28, fontWeight: 900, color: "#00f5d4", fontFamily: "JetBrains Mono" }}>{v}</div>
+              <div style={{ fontSize: 11, color: "#55556a", fontWeight: 600, marginTop: 2, textTransform: "uppercase", letterSpacing: 1.5, fontFamily: "JetBrains Mono" }}>{l}</div>
             </div>
-            <span className="text-sm text-white/30">
-              TraceRemove AI © 2026
-            </span>
-          </div>
-          <div className="flex items-center gap-6 text-sm text-white/30">
-            <a href="#" className="hover:text-white/60 transition-colors">
-              Privacy
-            </a>
-            <a href="#" className="hover:text-white/60 transition-colors">
-              Terms
-            </a>
-            <a href="#" className="hover:text-white/60 transition-colors">
-              Contact
-            </a>
+          ))}
+        </div>
+      </section>
+
+      <section style={{ padding: "80px 20px", position: "relative" }}>
+        <div style={{ maxWidth: 1000, margin: "0 auto", textAlign: "center" }}>
+          <span style={{ display: "inline-block", padding: "4px 12px", borderRadius: 100, background: "rgba(192,132,252,.08)", border: "1px solid rgba(192,132,252,.15)", fontSize: 11, fontWeight: 700, color: "#c084fc", fontFamily: "JetBrains Mono", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 16 }}>Exclusive Feature</span>
+          <h2 style={{ fontSize: "clamp(24px,4vw,44px)", fontWeight: 900, letterSpacing: "-0.03em", margin: "0 0 12px" }}>Compare Models <span style={{ color: "#c084fc" }}>Side by Side</span></h2>
+          <p style={{ fontSize: 16, color: "#8888a0", maxWidth: 500, margin: "0 auto 40px", lineHeight: 1.7 }}>One prompt, two models, instant comparison. No other platform does this.</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 12, maxWidth: 800, margin: "0 auto" }}>
+            {[{n:"Claude Sonnet",i:"\u25C6",c:"#00f5d4",t:"Quantum computing uses qubits in superposition \u2014 both 0 and 1 simultaneously, like a spinning coin..."},{n:"GPT-4o",i:"\u25CE",c:"#f472b6",t:"Quantum computing leverages quantum mechanics. Unlike classical bits, qubits represent multiple states at once..."}].map((m,i) => (
+              <div key={i} style={{ background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.06)", borderRadius: 14, overflow: "hidden", textAlign: "left" }}>
+                <div style={{ padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,.06)", display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,.02)" }}>
+                  <span style={{ fontSize: 16, color: m.c }}>{m.i}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{m.n}</span>
+                </div>
+                <div style={{ padding: "14px 16px", fontSize: 13, lineHeight: 1.7, color: "#9999aa" }}>{m.t}</div>
+              </div>
+            ))}
           </div>
         </div>
-      </footer>
+      </section>
 
-      <style jsx global>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(4px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        html {
-          scroll-behavior: smooth;
-        }
-      `}</style>
+      <section style={{ padding: "80px 20px" }}>
+        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+          <h2 style={{ fontSize: "clamp(24px,4vw,44px)", fontWeight: 900, letterSpacing: "-0.03em", textAlign: "center", margin: "0 0 12px" }}>Everything You Need</h2>
+          <p style={{ fontSize: 16, color: "#8888a0", textAlign: "center", maxWidth: 450, margin: "0 auto 48px", lineHeight: 1.7 }}>One platform to replace ChatGPT, Claude, and Perplexity.</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 12 }}>
+            {F.map((f,i) => (
+              <div key={i} style={{ padding: "24px 20px", borderRadius: 14, background: "rgba(255,255,255,.015)", border: "1px solid rgba(255,255,255,.04)", position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,transparent," + f.c + "40,transparent)" }} />
+                <div style={{ fontSize: 24, marginBottom: 12, color: f.c }}>{f.i}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{f.t}</div>
+                <div style={{ fontSize: 13, color: "#8888a0", lineHeight: 1.7 }}>{f.d}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section style={{ padding: "80px 20px" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto" }}>
+          <h2 style={{ fontSize: "clamp(24px,4vw,44px)", fontWeight: 900, letterSpacing: "-0.03em", textAlign: "center", margin: "0 0 12px" }}>Simple Pricing</h2>
+          <p style={{ fontSize: 16, color: "#8888a0", textAlign: "center", margin: "0 0 48px" }}>Start free. Upgrade when you need more.</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 12 }}>
+            {P.map((p,i) => (
+              <div key={i} style={{ padding: "28px 24px", borderRadius: 14, background: p.pop ? "rgba(0,245,212,.03)" : "rgba(255,255,255,.015)", border: "1px solid " + (p.pop ? "rgba(0,245,212,.2)" : "rgba(255,255,255,.04)"), position: "relative", overflow: "hidden" }}>
+                {p.pop && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,#00f5d4,#00b4d8)" }} />}
+                {p.pop && <span style={{ position: "absolute", top: 12, right: 12, padding: "2px 8px", borderRadius: 100, background: "rgba(0,245,212,.1)", fontSize: 10, fontWeight: 700, color: "#00f5d4", fontFamily: "JetBrains Mono" }}>POPULAR</span>}
+                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, color: p.pop ? "#00f5d4" : "#e4e4ed" }}>{p.n}</div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 3, marginBottom: 20 }}>
+                  <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: -1 }}>{p.p}</span>
+                  <span style={{ fontSize: 13, color: "#55556a" }}>{p.s}</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
+                  {p.f.map((f,j) => (
+                    <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#9999aa" }}>
+                      <span style={{ color: "#00f5d4", fontSize: 12 }}>{"\u2713"}</span>{f}
+                    </div>
+                  ))}
+                </div>
+                <button onClick={onEnter} style={{ width: "100%", padding: "10px", borderRadius: 8, background: p.pop ? "linear-gradient(135deg,#00f5d4,#00b4d8)" : "rgba(255,255,255,.04)", border: p.pop ? "none" : "1px solid rgba(255,255,255,.08)", color: p.pop ? "#050508" : "#e4e4ed", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{p.cta}</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section style={{ padding: "80px 20px", textAlign: "center" }}>
+        <h2 style={{ fontSize: "clamp(24px,4vw,44px)", fontWeight: 900, letterSpacing: "-0.03em", margin: "0 0 12px" }}>Ready to Try the <span style={{ background: "linear-gradient(135deg,#00f5d4,#c084fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Future of AI?</span></h2>
+        <p style={{ fontSize: 16, color: "#8888a0", maxWidth: 450, margin: "0 auto 28px", lineHeight: 1.7 }}>Join users who switched from ChatGPT and Claude. No credit card required.</p>
+        <button onClick={onEnter} style={{ padding: "14px 36px", borderRadius: 10, background: "linear-gradient(135deg,#00f5d4,#00b4d8)", border: "none", color: "#050508", fontSize: 16, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 6px 30px rgba(0,245,212,.2)" }}>Get Started Free</button>
+      </section>
+
+      <footer style={{ padding: "32px 20px", borderTop: "1px solid rgba(255,255,255,.05)", textAlign: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 10 }}>
+          <div style={{ width: 24, height: 24, borderRadius: 6, background: "linear-gradient(135deg,#00f5d4,#00b4d8)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "JetBrains Mono", fontSize: 10, fontWeight: 800, color: "#050508" }}>TR</div>
+          <span style={{ fontSize: 13, fontWeight: 700 }}>TraceRemove AI</span>
+        </div>
+        <p style={{ fontSize: 12, color: "#55556a" }}>{"\u00A9"} 2026 TraceRemove AI. All rights reserved.</p>
+      </footer>
     </div>
   );
 }
