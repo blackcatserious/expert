@@ -3,3 +3,6 @@ node_modules
 .env
 .env.local
 *.tsbuildinfo
+
+# clerk configuration (can include secrets)
+/.clerk/

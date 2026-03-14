@@ -63,6 +63,7 @@ function CodeBlock({ className, children }: { className?: string; children: stri
         <code style={{ color: "#e4e4ed" }}>{code}</code>
       </pre>
     </div>
+    </>
   );
 }
 
@@ -111,6 +112,7 @@ function ErrorBubble({ content }: { content: string }) {
       <div style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, background: "linear-gradient(135deg,#ef4444,#dc2626)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--mono)", fontSize: 15, fontWeight: 800, color: "#fff", marginTop: 4 }}>!</div>
       <div style={{ maxWidth: "85%", padding: "14px 18px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.15)", borderRadius: "16px 16px 16px 4px", fontSize: 14, lineHeight: 1.75, color: "#fca5a5" }}>{msg}</div>
     </div>
+    </>
   );
 }
 
@@ -125,6 +127,7 @@ function MsgBubble({ msg, streaming, isMobile }: { msg: Msg; streaming?: boolean
         {streaming && <span style={{ color: "#00f5d4", animation: "blink 1s infinite" }}>{"\u258D"}</span>}
       </div>
     </div>
+    </>
   );
 }
 
@@ -272,7 +275,11 @@ export default function Home() {
   const currentMode = MODES.find(m => m.id === mode) || MODES[0];
   const sidebarW = isMobile ? 280 : 272;
 
+  const { openSignIn } = useClerk();
   return (
+    <>
+    <SignedOut><Landing onEnter={() => openSignIn()} /></SignedOut>
+    <SignedIn>
     <div style={{ width: "100%", height: "100vh", display: "flex", background: "var(--bg)", color: "var(--fg)", fontFamily: "var(--sans)", overflow: "hidden", position: "relative" }}>
       <div style={{ position: "absolute", top: -300, right: -200, width: 800, height: 800, borderRadius: "50%", background: "radial-gradient(circle,rgba(0,245,212,.015) 0%,transparent 65%)", pointerEvents: "none" }} />
 
@@ -516,5 +523,7 @@ export default function Home() {
         </>
       )}
     </div>
+    </SignedIn>
+    </>
   );
 }
