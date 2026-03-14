@@ -2,7 +2,8 @@
 import { useState, useEffect, useRef, useCallback, memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useUser, UserButton } from "@clerk/nextjs";
+import { useUser, UserButton, SignedIn, SignedOut, useClerk } from "@clerk/nextjs";
+import Landing from "./landing";
 
 const MODELS = [
   { id: "tr-ultra", name: "TR Ultra", desc: "Claude Sonnet — precision", icon: "\u25C6", color: "#00f5d4" },
